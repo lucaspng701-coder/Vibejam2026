@@ -16,6 +16,7 @@ import { Player, PlayerControls } from './game/player'
 import { Ball } from './game/ball'
 import { SphereTool } from './game/sphere-tool'
 import { Platforms } from './game/platforms'
+import { LevelLoader } from './level/LevelLoader'
 
 const Scene = () => {
     const texture = useTexture('/final-texture.png')
@@ -159,6 +160,14 @@ export function App() {
         hidden: true
     })
 
+    const {
+        loadSampleLevel,
+        showColliders
+    } = useControls('Level', {
+        loadSampleLevel: { value: false, label: 'load sample.json' },
+        showColliders: { value: false, label: 'debug colliders' }
+    }, { collapsed: true })
+
     return (
         <>
             <div style={{
@@ -227,7 +236,7 @@ export function App() {
                 />
 
                 <Physics 
-                    debug={false} 
+                    debug={showColliders} 
                     paused={loading}
                     timeStep={1/60}
                     interpolate={true}
@@ -255,6 +264,7 @@ export function App() {
                         />
                     </PlayerControls>
                     <Platforms />
+                    {loadSampleLevel && <LevelLoader src="/levels/sample.json" />}
                     <Ball />
 
                     <Scene />

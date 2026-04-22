@@ -1,0 +1,40 @@
+{
+    "version": 1,
+    "name": "sample",
+    "instances": [
+        {
+            "id": "bulk-wall-01",
+            "assetId": "primitives/cube",
+            "category": "static-bulk",
+            "position": [18, 1.5, 0],
+            "rotation": [0, 0, 0],
+            "scale": [1, 3, 6]
+        },
+        {
+            "id": "prop-pillar-01",
+            "assetId": "primitives/cylinder",
+            "category": "static-prop",
+            "position": [15, 1.25, 3],
+            "rotation": [0, 0, 0],
+            "scale": [1, 2.5, 1]
+        },
+        {
+            "id": "dynamic-crate-01",
+            "assetId": "primitives/cube",
+            "category": "dynamic",
+            "position": [15, 5, -3],
+            "rotation": [0, 0.5, 0],
+            "scale": [1, 1, 1],
+            "props": { "mass": 8 }
+        },
+        {
+            "id": "breakable-ball-01",
+            "assetId": "primitives/sphere",
+            "category": "breakable",
+            "position": [13, 6, 0],
+            "rotation": [0, 0, 0],
+            "scale": [1, 1, 1],
+            "props": { "mass": 4, "fractureThreshold": 30 }
+        }
+    ]
+}
