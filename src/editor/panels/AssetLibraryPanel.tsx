@@ -1,5 +1,6 @@
 import type { Category } from '../../level/types'
 import { defaultInstanceFor, useEditorStore } from '../state/store'
+import { ASSET_CATALOG } from '../../level/asset-catalog'
 
 interface AssetEntry {
     id: string
@@ -29,15 +30,47 @@ export function AssetLibraryPanel() {
         addInstance(defaultInstanceFor(asset.id, category))
     }
 
+    const glbEntries: AssetEntry[] = ASSET_CATALOG.filter((e) => !e.isFracturedVariant).map((e) => ({
+        id: e.assetId,
+        label: e.label,
+        defaultCategory: e.meta?.category ?? (e.group === 'breakables' ? 'breakable' : 'static-prop'),
+    }))
+
     return (
         <div className="flex flex-col h-full text-neutral-200 text-sm">
             <div className="px-3 py-2 border-b border-neutral-800 font-semibold uppercase text-xs tracking-wider text-neutral-400">
                 Assets
             </div>
             <div className="px-3 py-2 border-b border-neutral-800 text-xs text-neutral-500">
-                Primitives (Phase 1). GLBs em <code className="text-neutral-400">public/assets/</code> chegam na Phase 2.
+                Assets em <code className="text-neutral-400">public/assets/</code> + primitives de debug.
             </div>
             <div className="flex-1 overflow-y-auto">
+                <div className="px-3 py-2 text-xs uppercase tracking-wider text-neutral-500">GLBs</div>
+                {glbEntries.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-neutral-600">Nenhum GLB detectado em public/assets.</div>
+                ) : (
+                    glbEntries.map((asset) => (
+                        <div key={asset.id} className="px-3 py-2 hover:bg-neutral-800/50 border-b border-neutral-900">
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium">{asset.label}</span>
+                                <span className="text-xs text-neutral-500">{asset.id}</span>
+                            </div>
+                            <div className="mt-2 grid grid-cols-2 gap-1">
+                                {CATEGORIES.map((cat) => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => onAdd(asset, cat)}
+                                        className="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-left"
+                                        title={`Add as ${CATEGORY_LABEL[cat]}`}
+                                    >
+                                        + {CATEGORY_LABEL[cat]}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ))
+                )}
+
                 <div className="px-3 py-2 text-xs uppercase tracking-wider text-neutral-500">Primitives</div>
                 {PRIMITIVES.map((asset) => (
                     <div key={asset.id} className="px-3 py-2 hover:bg-neutral-800/50 border-b border-neutral-900">

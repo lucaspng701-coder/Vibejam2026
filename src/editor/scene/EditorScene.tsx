@@ -1,13 +1,14 @@
 import { Canvas } from '@react-three/fiber'
-import { Grid, OrbitControls, TransformControls } from '@react-three/drei'
+import { Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { Instance } from '../../level/types'
 import { CATEGORY_DEFAULTS } from '../../level/colliderFactory'
 import { useEditorStore } from '../state/store'
 import { useMeshRegistry } from '../state/mesh-registry'
 import { Workplane } from './Workplane'
+import { resolveAssetUrl } from '../../level/asset-catalog'
 
 export function EditorScene() {
     const showGrid = useEditorStore((s) => s.showGrid)
@@ -90,12 +91,12 @@ const EditorInstance = memo(function EditorInstance({ instance }: { instance: In
                 select(instance.id)
             }}
         >
-            <PlaceholderMesh assetId={instance.assetId} color={color} highlighted={isSelected} />
+            <AssetPreview assetId={instance.assetId} color={color} highlighted={isSelected} />
         </group>
     )
 })
 
-function PlaceholderMesh({
+function AssetPreview({
     assetId,
     color,
     highlighted,
@@ -104,7 +105,11 @@ function PlaceholderMesh({
     color: string
     highlighted: boolean
 }) {
-    const kind = assetId.startsWith('primitives/') ? assetId.slice('primitives/'.length) : 'cube'
+    if (!assetId.startsWith('primitives/')) {
+        return <GlbPreview assetId={assetId} />
+    }
+
+    const kind = assetId.slice('primitives/'.length)
 
     return (
         <mesh castShadow receiveShadow>
@@ -124,6 +129,25 @@ function PlaceholderMesh({
             />
         </mesh>
     )
+}
+
+function GlbPreview({ assetId }: { assetId: string }) {
+    const url = resolveAssetUrl(assetId)
+    const gltf = useGLTF(url)
+
+    const sceneClone = useMemo(() => {
+        const clone = gltf.scene.clone(true)
+        clone.traverse((obj) => {
+            const mesh = obj as THREE.Mesh
+            if (mesh.isMesh) {
+                mesh.castShadow = true
+                mesh.receiveShadow = true
+            }
+        })
+        return clone
+    }, [gltf.scene])
+
+    return <primitive object={sceneClone} />
 }
 
 /**

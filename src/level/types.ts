@@ -9,6 +9,10 @@ export interface InstanceProps {
     fractureThreshold?: number
     /** assetId da variante fraturada (apenas breakable). */
     fracturedAssetId?: string
+    /** Massa de cada pedaço após fratura (apenas breakable). */
+    debrisMass?: number
+    /** Tempo de vida dos pedaços após fratura (ms). */
+    debrisLifetimeMs?: number
     /** Permite extensão futura sem quebrar o schema. */
     [key: string]: unknown
 }
