@@ -7,6 +7,7 @@ import type { Instance } from '../../level/types'
 import { CATEGORY_DEFAULTS } from '../../level/colliderFactory'
 import { useEditorStore } from '../state/store'
 import { useMeshRegistry } from '../state/mesh-registry'
+import { Workplane } from './Workplane'
 
 export function EditorScene() {
     const showGrid = useEditorStore((s) => s.showGrid)
@@ -32,6 +33,8 @@ export function EditorScene() {
                 shadow-camera-bottom={-30}
                 shadow-bias={-0.0001}
             />
+
+            <Workplane />
 
             {showGrid && (
                 <Grid

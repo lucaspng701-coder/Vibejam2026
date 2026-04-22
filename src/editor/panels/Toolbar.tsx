@@ -76,9 +76,9 @@ export function Toolbar() {
 
             <div className="h-6 w-px bg-neutral-800 mx-1" />
 
-            <ModeButton label="Translate (W)" active={mode === 'translate'} onClick={() => setMode('translate')} />
-            <ModeButton label="Rotate (E)" active={mode === 'rotate'} onClick={() => setMode('rotate')} />
-            <ModeButton label="Scale (R)" active={mode === 'scale'} onClick={() => setMode('scale')} />
+            <ModeButton label="Translate (E)" active={mode === 'translate'} onClick={() => setMode('translate')} />
+            <ModeButton label="Rotate (R)" active={mode === 'rotate'} onClick={() => setMode('rotate')} />
+            <ModeButton label="Scale (S)" active={mode === 'scale'} onClick={() => setMode('scale')} />
 
             <div className="h-6 w-px bg-neutral-800 mx-1" />
 

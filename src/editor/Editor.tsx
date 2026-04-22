@@ -30,8 +30,8 @@ export default function Editor() {
 function HintsOverlay() {
     return (
         <div className="pointer-events-none absolute bottom-3 left-3 text-[11px] text-neutral-500 font-mono space-y-0.5">
-            <div>Click: select · Alt+Click vazio: deselect</div>
-            <div>W/E/R: translate / rotate / scale</div>
+            <div>Click: select · Click no vazio: deselect</div>
+            <div>E/R/S: translate / rotate / scale (C4D style)</div>
             <div>Ctrl+Z / Ctrl+Shift+Z: undo/redo · Ctrl+D: duplicate · Del: remove</div>
         </div>
     )
@@ -72,9 +72,9 @@ function useEditorShortcuts() {
             }
 
             if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-                if (e.key === 'w' || e.key === 'W') s.setMode('translate')
-                else if (e.key === 'e' || e.key === 'E') s.setMode('rotate')
-                else if (e.key === 'r' || e.key === 'R') s.setMode('scale')
+                if (e.key === 'e' || e.key === 'E') s.setMode('translate')
+                else if (e.key === 'r' || e.key === 'R') s.setMode('rotate')
+                else if (e.key === 's' || e.key === 'S') s.setMode('scale')
                 else if (e.key === 'Escape') s.select(null)
             }
         }
