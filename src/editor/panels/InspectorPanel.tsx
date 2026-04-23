@@ -1,7 +1,25 @@
-import type { Category, Vec3 } from '../../level/types'
+import type { Category, InstanceProps, LightKind, Vec3 } from '../../level/types'
 import { useEditorStore } from '../state/store'
 
-const CATEGORY_OPTIONS: Category[] = ['static-bulk', 'static-prop', 'dynamic', 'breakable']
+const CATEGORY_OPTIONS: Category[] = [
+    'static-bulk',
+    'static-prop',
+    'dynamic',
+    'breakable',
+    'no-collision',
+    'light',
+]
+
+const CATEGORY_SELECT_LABEL: Record<Category, string> = {
+    'static-bulk': 'Static (bulk)',
+    'static-prop': 'Static (prop)',
+    dynamic: 'Dynamic',
+    breakable: 'Breakable',
+    'no-collision': 'No collision (visual)',
+    light: 'Light',
+}
+
+const LIGHT_KIND_OPTIONS: LightKind[] = ['point', 'spot', 'directional']
 
 export function InspectorPanel() {
     const selectedId = useEditorStore((s) => s.selectedId)
@@ -12,13 +30,17 @@ export function InspectorPanel() {
     const removeInstance = useEditorStore((s) => s.removeInstance)
     const duplicateInstance = useEditorStore((s) => s.duplicateInstance)
 
+    const isLight = instance?.category === 'light'
+
     return (
         <div className="flex flex-col h-full text-neutral-200 text-sm">
             <div className="px-3 py-2 border-b border-neutral-800 font-semibold uppercase text-xs tracking-wider text-neutral-400">
                 Inspector
             </div>
             {!instance || !selectedId ? (
-                <div className="p-4 text-neutral-500 text-xs">Nada selecionado. Clique em um objeto na cena.</div>
+                <div className="p-4 text-neutral-500 text-xs">
+                    Nada selecionado. Clique em um objeto na cena ou no outliner.
+                </div>
             ) : (
                 <div className="flex-1 overflow-y-auto p-3 space-y-4">
                     <Field label="ID">
@@ -37,7 +59,7 @@ export function InspectorPanel() {
                         >
                             {CATEGORY_OPTIONS.map((c) => (
                                 <option key={c} value={c}>
-                                    {c}
+                                    {CATEGORY_SELECT_LABEL[c]}
                                 </option>
                             ))}
                         </select>
@@ -55,50 +77,40 @@ export function InspectorPanel() {
                         step={0.05}
                         onChange={(v) => updateTransform(selectedId, { rotation: v })}
                     />
-                    <Vec3Field
-                        label="Scale"
-                        value={instance.scale}
-                        step={0.1}
-                        min={0.01}
-                        onChange={(v) => updateTransform(selectedId, { scale: v })}
-                    />
+                    {!isLight && (
+                        <Vec3Field
+                            label="Scale"
+                            value={instance.scale}
+                            step={0.1}
+                            min={0.01}
+                            onChange={(v) => updateTransform(selectedId, { scale: v })}
+                        />
+                    )}
 
-                    {instance.category === 'dynamic' || instance.category === 'breakable' ? (
+                    {(instance.category === 'dynamic' || instance.category === 'breakable') && (
                         <Field label="Mass">
-                            <input
-                                type="number"
+                            <NumberInput
                                 step={0.5}
                                 min={0.1}
-                                value={instance.props?.mass ?? ''}
+                                value={instance.props?.mass}
                                 placeholder="default"
-                                onChange={(e) => {
-                                    const v = e.target.value
-                                    updateProps(selectedId, { mass: v === '' ? undefined : Number(v) })
-                                }}
-                                className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm"
+                                onChange={(v) => updateProps(selectedId, { mass: v })}
                             />
                         </Field>
-                    ) : null}
+                    )}
 
-                    {instance.category === 'breakable' ? (
+                    {instance.category === 'breakable' && (
                         <>
-                            <Field label="Fracture Threshold">
-                                <input
-                                    type="number"
+                            <Field label="Fracture threshold (m/s)">
+                                <NumberInput
                                     step={1}
                                     min={0}
-                                    value={instance.props?.fractureThreshold ?? ''}
+                                    value={instance.props?.fractureThreshold}
                                     placeholder="default"
-                                    onChange={(e) => {
-                                        const v = e.target.value
-                                        updateProps(selectedId, {
-                                            fractureThreshold: v === '' ? undefined : Number(v),
-                                        })
-                                    }}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm"
+                                    onChange={(v) => updateProps(selectedId, { fractureThreshold: v })}
                                 />
                             </Field>
-                            <Field label="Fractured AssetId">
+                            <Field label="Fractured assetId">
                                 <input
                                     type="text"
                                     value={instance.props?.fracturedAssetId ?? ''}
@@ -112,7 +124,14 @@ export function InspectorPanel() {
                                 />
                             </Field>
                         </>
-                    ) : null}
+                    )}
+
+                    {isLight && (
+                        <LightFields
+                            props={instance.props ?? {}}
+                            onPatch={(p) => updateProps(selectedId, p)}
+                        />
+                    )}
 
                     <div className="flex gap-2 pt-2 border-t border-neutral-800">
                         <button
@@ -134,12 +153,154 @@ export function InspectorPanel() {
     )
 }
 
+function LightFields({
+    props,
+    onPatch,
+}: {
+    props: InstanceProps
+    onPatch: (p: InstanceProps) => void
+}) {
+    const kind: LightKind = (props.lightKind as LightKind) ?? 'point'
+    return (
+        <div className="space-y-3 p-2 rounded border border-yellow-900/40 bg-yellow-950/10">
+            <div className="text-xs font-semibold uppercase tracking-wider text-yellow-200/80">
+                Light
+            </div>
+
+            <Field label="Kind">
+                <select
+                    value={kind}
+                    onChange={(e) => onPatch({ lightKind: e.target.value as LightKind })}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm"
+                >
+                    {LIGHT_KIND_OPTIONS.map((k) => (
+                        <option key={k} value={k}>
+                            {k}
+                        </option>
+                    ))}
+                </select>
+            </Field>
+
+            <Field label="Color">
+                <div className="flex items-center gap-2">
+                    <input
+                        type="color"
+                        value={(props.color as string) ?? '#ffffff'}
+                        onChange={(e) => onPatch({ color: e.target.value })}
+                        className="h-7 w-12 rounded border border-neutral-700 bg-neutral-900"
+                    />
+                    <input
+                        type="text"
+                        value={(props.color as string) ?? '#ffffff'}
+                        onChange={(e) => onPatch({ color: e.target.value })}
+                        className="flex-1 bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs font-mono"
+                    />
+                </div>
+            </Field>
+
+            <Field label="Intensity">
+                <NumberInput
+                    step={0.25}
+                    min={0}
+                    value={props.intensity as number | undefined}
+                    placeholder="1"
+                    onChange={(v) => onPatch({ intensity: v })}
+                />
+            </Field>
+
+            {kind !== 'directional' && (
+                <>
+                    <Field label="Distance (0 = inf)">
+                        <NumberInput
+                            step={0.5}
+                            min={0}
+                            value={props.distance as number | undefined}
+                            placeholder="0"
+                            onChange={(v) => onPatch({ distance: v })}
+                        />
+                    </Field>
+                    <Field label="Decay">
+                        <NumberInput
+                            step={0.1}
+                            min={0}
+                            value={props.decay as number | undefined}
+                            placeholder="2"
+                            onChange={(v) => onPatch({ decay: v })}
+                        />
+                    </Field>
+                </>
+            )}
+
+            {kind === 'spot' && (
+                <>
+                    <Field label="Angle (rad)">
+                        <NumberInput
+                            step={0.05}
+                            min={0}
+                            value={props.angle as number | undefined}
+                            placeholder={String(Math.PI / 6)}
+                            onChange={(v) => onPatch({ angle: v })}
+                        />
+                    </Field>
+                    <Field label="Penumbra (0..1)">
+                        <NumberInput
+                            step={0.05}
+                            min={0}
+                            value={props.penumbra as number | undefined}
+                            placeholder="0.2"
+                            onChange={(v) => onPatch({ penumbra: v })}
+                        />
+                    </Field>
+                </>
+            )}
+
+            <label className="flex items-center gap-2 text-xs text-neutral-300">
+                <input
+                    type="checkbox"
+                    checked={Boolean(props.castShadow)}
+                    onChange={(e) => onPatch({ castShadow: e.target.checked })}
+                />
+                Cast shadow
+            </label>
+        </div>
+    )
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <label className="block">
             <div className="text-xs uppercase tracking-wider text-neutral-500 mb-1">{label}</div>
             {children}
         </label>
+    )
+}
+
+function NumberInput({
+    value,
+    step,
+    min,
+    placeholder,
+    onChange,
+}: {
+    value: number | undefined
+    step: number
+    min?: number
+    placeholder?: string
+    onChange: (v: number | undefined) => void
+}) {
+    return (
+        <input
+            type="number"
+            step={step}
+            min={min}
+            value={value ?? ''}
+            placeholder={placeholder}
+            onChange={(e) => {
+                const v = e.target.value
+                onChange(v === '' ? undefined : Number(v))
+            }}
+            className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm"
+        />
     )
 }
 

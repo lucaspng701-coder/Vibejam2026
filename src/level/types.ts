@@ -1,9 +1,18 @@
 export type Vec3 = [number, number, number]
 
-export type Category = 'static-bulk' | 'static-prop' | 'dynamic' | 'breakable'
+export type Category =
+    | 'static-bulk'
+    | 'static-prop'
+    | 'dynamic'
+    | 'breakable'
+    /** Só renderiza malha; sem corpo Rapier (decoração, decals, etc.). */
+    | 'no-collision'
+    | 'light'
+
+export type LightKind = 'point' | 'spot' | 'directional'
 
 export interface InstanceProps {
-    /** kg; usado em dynamic/breakable. Default vem do meta do asset ou da categoria. */
+    /** kg; usado em dynamic/breakable. Ignorado em no-collision/light/static. */
     mass?: number
     /**
      * Velocidade mínima (m/s) do corpo que colide com o breakable para que ele frature.
@@ -16,6 +25,25 @@ export interface InstanceProps {
     debrisMass?: number
     /** Tempo de vida dos pedaços após fratura (ms). */
     debrisLifetimeMs?: number
+
+    // ---- Light-only props (category === 'light') ----
+    /** Tipo de luz (derivável também do assetId `lights/<kind>`). */
+    lightKind?: LightKind
+    /** Cor hex (#rrggbb). */
+    color?: string
+    /** Intensidade. */
+    intensity?: number
+    /** Alcance em metros (0 = infinito, para point/spot). */
+    distance?: number
+    /** Decay (point/spot). Default 2 = físico. */
+    decay?: number
+    /** Ângulo em radianos (spot). */
+    angle?: number
+    /** Penumbra 0..1 (spot). */
+    penumbra?: number
+    /** Se a luz projeta sombras. */
+    castShadow?: boolean
+
     /** Permite extensão futura sem quebrar o schema. */
     [key: string]: unknown
 }
@@ -23,9 +51,10 @@ export interface InstanceProps {
 export interface Instance {
     id: string
     /**
-     * Identificador do asset. Nesta fase inicial aceita:
-     *   - `primitives/cube` | `primitives/sphere` | `primitives/cylinder` (placeholders coloridos)
-     *   - Futuramente: caminho relativo dentro de `public/assets/`, sem `.glb`.
+     * Identificador do asset. Aceita:
+     *   - `primitives/cube` | `primitives/sphere` | `primitives/cylinder`
+     *   - `lights/point` | `lights/spot` | `lights/directional`
+     *   - Caminho relativo em `public/assets/`, sem `.glb`.
      */
     assetId: string
     category: Category

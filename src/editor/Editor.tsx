@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { EditorScene } from './scene/EditorScene'
 import { AssetLibraryPanel } from './panels/AssetLibraryPanel'
 import { InspectorPanel } from './panels/InspectorPanel'
+import { OutlinerPanel } from './panels/OutlinerPanel'
 import { Toolbar } from './panels/Toolbar'
 import { useEditorStore } from './state/store'
 
@@ -12,14 +13,19 @@ export default function Editor() {
         <div className="fixed inset-0 flex flex-col bg-neutral-950 text-neutral-200">
             <Toolbar />
             <div className="flex-1 flex min-h-0">
-                <aside className="w-64 border-r border-neutral-800 bg-neutral-900">
-                    <AssetLibraryPanel />
+                <aside className="w-60 border-r border-neutral-800 bg-neutral-900 shrink-0">
+                    <OutlinerPanel />
                 </aside>
-                <main className="flex-1 relative min-w-0">
-                    <EditorScene />
-                    <HintsOverlay />
-                </main>
-                <aside className="w-72 border-l border-neutral-800 bg-neutral-900">
+                <div className="flex-1 flex flex-col min-w-0">
+                    <main className="flex-1 relative min-h-0">
+                        <EditorScene />
+                        <HintsOverlay />
+                    </main>
+                    <section className="h-44 border-t border-neutral-800 bg-neutral-900 shrink-0">
+                        <AssetLibraryPanel />
+                    </section>
+                </div>
+                <aside className="w-72 border-l border-neutral-800 bg-neutral-900 shrink-0">
                     <InspectorPanel />
                 </aside>
             </div>

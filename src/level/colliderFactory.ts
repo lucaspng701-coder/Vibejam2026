@@ -37,6 +37,20 @@ export const CATEGORY_DEFAULTS: Record<Category, CategoryDefaults> = {
         defaultMass: 15,
         uniformScaleOnly: true,
     },
+    'no-collision': {
+        // Sem rigid body no jogo; valores só para editor / consistência de tipo.
+        bodyType: 'fixed',
+        debugColor: '#9b7bb8',
+        defaultMass: 0,
+        uniformScaleOnly: false,
+    },
+    light: {
+        // Luzes não têm rigid body; bodyType é s\u00f3 pra satisfazer o tipo.
+        bodyType: 'fixed',
+        debugColor: '#f2d25a',
+        defaultMass: 0,
+        uniformScaleOnly: false,
+    },
 }
 
 export function bodyTypeFor(category: Category): BodyType {

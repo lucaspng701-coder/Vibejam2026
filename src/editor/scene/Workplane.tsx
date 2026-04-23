@@ -1,20 +1,18 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { useEditorStore } from '../state/store'
 
 /**
  * Visual reference mirroring the gameplay arena (50x50 floor, 4m tall walls).
- * Clicking anywhere on it deselects (acts as "empty space").
+ * Nao tem handlers de clique proprios: a deselecao em espaco vazio e
+ * responsabilidade da Canvas (onPointerMissed em EditorScene).
  */
 const ARENA_SIZE = 50
 const ARENA_HALF = ARENA_SIZE / 2
 const WALL_HEIGHT = 4
 
 export function Workplane() {
-    const deselect = () => useEditorStore.getState().select(null)
-
     return (
-        <group onClick={(e) => { e.stopPropagation(); deselect() }}>
+        <group>
             {/* Floor plane slightly below y=0 so the drei Grid overlays on top cleanly. */}
             <mesh position={[0, -0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[ARENA_SIZE, ARENA_SIZE]} />

@@ -1,14 +1,20 @@
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
+
+// Flag global: bloqueia o "onPointerMissed" do Canvas logo apos o usuario
+// soltar uma handle do gizmo (se nao, a Canvas acha que foi clique no vazio
+// e deseleciona o objeto).
+const gizmoInteractionState = { justUsed: false }
 import type { Instance } from '../../level/types'
 import { CATEGORY_DEFAULTS } from '../../level/colliderFactory'
 import { useEditorStore } from '../state/store'
 import { useMeshRegistry } from '../state/mesh-registry'
 import { Workplane } from './Workplane'
 import { resolveAssetUrl } from '../../level/asset-catalog'
+import { lightKindFromAssetId } from '../../level/LevelLoader'
 
 export function EditorScene() {
     const showGrid = useEditorStore((s) => s.showGrid)
@@ -19,7 +25,10 @@ export function EditorScene() {
         <Canvas
             shadows
             camera={{ position: [12, 10, 12], fov: 50, near: 0.1, far: 500 }}
-            onPointerMissed={() => useEditorStore.getState().select(null)}
+            onPointerMissed={() => {
+                if (gizmoInteractionState.justUsed) return
+                useEditorStore.getState().select(null)
+            }}
         >
             <color attach="background" args={['#1a1d22']} />
             <ambientLight intensity={0.8} />
@@ -58,6 +67,7 @@ export function EditorScene() {
                 ))}
             </Physics>
 
+            <SelectionBoundingBox />
             <SelectionGizmo />
 
             <OrbitControls makeDefault enableDamping dampingFactor={0.1} />
@@ -87,14 +97,69 @@ const EditorInstance = memo(function EditorInstance({ instance }: { instance: In
             rotation={instance.rotation}
             scale={instance.scale}
             onClick={(e) => {
+                // Ignora cliques que vieram de uma interacao com o gizmo
+                // (quando o usuario solta a seta X/Y/Z em cima de outro objeto).
+                if (gizmoInteractionState.justUsed) return
                 e.stopPropagation()
                 select(instance.id)
             }}
         >
-            <AssetPreview assetId={instance.assetId} color={color} highlighted={isSelected} />
+            {instance.category === 'light' ? (
+                <LightPreview instance={instance} highlighted={isSelected} />
+            ) : (
+                <AssetPreview assetId={instance.assetId} color={color} highlighted={isSelected} />
+            )}
         </group>
     )
 })
+
+function LightPreview({ instance, highlighted }: { instance: Instance; highlighted: boolean }) {
+    const kind = instance.props?.lightKind ?? lightKindFromAssetId(instance.assetId)
+    const color = instance.props?.color ?? '#ffffff'
+    const intensity = instance.props?.intensity ?? 1
+
+    return (
+        <group>
+            {/* Bulbo clicavel que representa a luz */}
+            <mesh>
+                <sphereGeometry args={[0.18, 16, 12]} />
+                <meshBasicMaterial color={color} />
+            </mesh>
+            <mesh visible={highlighted}>
+                <sphereGeometry args={[0.24, 16, 12]} />
+                <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.6} />
+            </mesh>
+            {/* Wireframe indicador do alcance/ângulo */}
+            {kind === 'point' && (
+                <mesh>
+                    <sphereGeometry args={[Math.max(0.01, instance.props?.distance ?? 5), 16, 10]} />
+                    <meshBasicMaterial color={color} wireframe transparent opacity={0.08} />
+                </mesh>
+            )}
+            {kind === 'spot' && (
+                <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                    <coneGeometry
+                        args={[
+                            Math.tan(instance.props?.angle ?? Math.PI / 6) *
+                                Math.max(1, instance.props?.distance ?? 5),
+                            Math.max(1, instance.props?.distance ?? 5),
+                            24,
+                            1,
+                            true,
+                        ]}
+                    />
+                    <meshBasicMaterial color={color} wireframe transparent opacity={0.18} />
+                </mesh>
+            )}
+            {kind === 'directional' && (
+                <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                    <cylinderGeometry args={[0.02, 0.02, Math.max(1, intensity * 2), 6]} />
+                    <meshBasicMaterial color={color} />
+                </mesh>
+            )}
+        </group>
+    )
+}
 
 function AssetPreview({
     assetId,
@@ -162,24 +227,92 @@ function SelectionGizmo() {
     const meshes = useMeshRegistry((s) => s.meshes)
     const target = selectedId ? meshes[selectedId] : null
 
-    const [, setDragging] = useState(false)
+    const tcRef = useRef<THREE.Object3D & { axis?: string | null } | null>(null)
+    const gl = useThree((s) => s.gl)
+    const selectedIdRef = useRef(selectedId)
+    const targetRef = useRef(target)
+    selectedIdRef.current = selectedId
+    targetRef.current = target
+
+    // Listeners DOM em capture phase: rodam antes de R3F e do proprio
+    // TransformControls, e usam diretamente `tc.axis` (null = sem handle
+    // sob o cursor, string = handle ativa). 100% deterministico.
+    useEffect(() => {
+        const dom = gl.domElement
+
+        const onDownCapture = () => {
+            const axis = tcRef.current?.axis
+            if (axis) {
+                gizmoInteractionState.justUsed = true
+            }
+        }
+        const onUpCapture = () => {
+            if (!gizmoInteractionState.justUsed) return
+            // Mantem o flag ativo pelo proximo ciclo de eventos inteiro,
+            // para cobrir onPointerMissed / onClick que o R3F dispare em
+            // seguida. Limpo no proximo animation frame + pequena margem.
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    gizmoInteractionState.justUsed = false
+                }, 0)
+            })
+        }
+
+        dom.addEventListener('pointerdown', onDownCapture, true)
+        dom.addEventListener('pointerup', onUpCapture, true)
+        return () => {
+            dom.removeEventListener('pointerdown', onDownCapture, true)
+            dom.removeEventListener('pointerup', onUpCapture, true)
+        }
+    }, [gl])
 
     if (!target) return null
 
     return (
         <TransformControls
+            ref={tcRef as unknown as React.Ref<THREE.Object3D>}
             object={target}
             mode={mode}
-            onMouseDown={() => setDragging(true)}
+            size={1.5}
             onMouseUp={() => {
-                setDragging(false)
-                if (!selectedId) return
-                updateTransform(selectedId, {
-                    position: [target.position.x, target.position.y, target.position.z],
-                    rotation: [target.rotation.x, target.rotation.y, target.rotation.z],
-                    scale: [target.scale.x, target.scale.y, target.scale.z],
+                const id = selectedIdRef.current
+                const t = targetRef.current
+                if (!id || !t) return
+                updateTransform(id, {
+                    position: [t.position.x, t.position.y, t.position.z],
+                    rotation: [t.rotation.x, t.rotation.y, t.rotation.z],
+                    scale: [t.scale.x, t.scale.y, t.scale.z],
                 })
             }}
         />
     )
+}
+
+/**
+ * Caixa amarela ao redor do objeto selecionado (estilo three.js editor).
+ * Atualiza automaticamente enquanto o usuario move/gira/escala via gizmo.
+ */
+function SelectionBoundingBox() {
+    const selectedId = useEditorStore((s) => s.selectedId)
+    const meshes = useMeshRegistry((s) => s.meshes)
+    const target = selectedId ? meshes[selectedId] : null
+
+    const helper = useMemo(() => {
+        if (!target) return null
+        return new THREE.BoxHelper(target, 0xffff00)
+    }, [target])
+
+    useFrame(() => {
+        helper?.update()
+    })
+
+    useEffect(() => {
+        return () => {
+            helper?.geometry.dispose()
+            ;(helper?.material as THREE.Material | undefined)?.dispose()
+        }
+    }, [helper])
+
+    if (!helper) return null
+    return <primitive object={helper} />
 }

@@ -1,5 +1,74 @@
 {
-    "version": 1,
-    "name": "level1",
-    "instances": []
+  "version": 1,
+  "name": "untitled",
+  "instances": [
+    {
+      "assetId": "breakables/crate",
+      "category": "static-prop",
+      "position": [
+        -4.823430676044106,
+        1,
+        -5.949659520614592
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_cvg5ug6d_moaup3rh"
+    },
+    {
+      "assetId": "lights/point",
+      "category": "light",
+      "position": [
+        4.5,
+        4.5,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "props": {
+        "lightKind": "point",
+        "color": "#ffffff",
+        "intensity": 500,
+        "distance": 10,
+        "decay": 2,
+        "castShadow": false
+      },
+      "id": "inst_zw6ed0p9_moaupfkz"
+    },
+    {
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        -0.5745787537931738,
+        3.5067586233825567,
+        -1.333689595133305
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_neldjxhc_moauptss"
+    }
+  ]
 }

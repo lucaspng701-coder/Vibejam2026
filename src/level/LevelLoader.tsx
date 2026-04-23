@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { getAssetMeta, resolveAssetUrl, resolveFracturedAssetId } from './asset-catalog'
 import { CATEGORY_DEFAULTS } from './colliderFactory'
-import type { Instance, LevelFile, Vec3 } from './types'
+import type { Instance, LevelFile, LightKind, Vec3 } from './types'
 
 interface LevelLoaderProps {
     src: string
@@ -116,6 +116,20 @@ function LevelInstance({
     const meta = getAssetMeta(assetId)
     const mass = props?.mass ?? meta?.mass ?? defaults.defaultMass
 
+    if (category === 'light') {
+        return <LightInstance instance={instance} />
+    }
+
+    if (category === 'no-collision') {
+        return (
+            <group position={position} rotation={rotation}>
+                <group scale={scale}>
+                    <AssetMesh assetId={assetId} color={defaults.debugColor} />
+                </group>
+            </group>
+        )
+    }
+
     if (category === 'breakable') {
         return (
             <BreakableInstance
@@ -139,6 +153,57 @@ function LevelInstance({
                 <AssetMesh assetId={assetId} color={defaults.debugColor} />
             </group>
         </RigidBody>
+    )
+}
+
+export function lightKindFromAssetId(assetId: string): LightKind {
+    if (assetId === 'lights/spot') return 'spot'
+    if (assetId === 'lights/directional') return 'directional'
+    return 'point'
+}
+
+function LightInstance({ instance }: { instance: Instance }) {
+    const { assetId, position, rotation, props } = instance
+    const kind = props?.lightKind ?? lightKindFromAssetId(assetId)
+    const color = props?.color ?? '#ffffff'
+    const intensity = props?.intensity ?? 1
+    const castShadow = props?.castShadow ?? false
+
+    if (kind === 'spot') {
+        return (
+            <spotLight
+                position={position}
+                rotation={rotation}
+                color={color}
+                intensity={intensity}
+                distance={props?.distance ?? 0}
+                decay={props?.decay ?? 2}
+                angle={props?.angle ?? Math.PI / 6}
+                penumbra={props?.penumbra ?? 0.2}
+                castShadow={castShadow}
+            />
+        )
+    }
+    if (kind === 'directional') {
+        return (
+            <directionalLight
+                position={position}
+                rotation={rotation}
+                color={color}
+                intensity={intensity}
+                castShadow={castShadow}
+            />
+        )
+    }
+    return (
+        <pointLight
+            position={position}
+            color={color}
+            intensity={intensity}
+            distance={props?.distance ?? 0}
+            decay={props?.decay ?? 2}
+            castShadow={castShadow}
+        />
     )
 }
 
