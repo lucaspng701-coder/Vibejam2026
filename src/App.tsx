@@ -5,13 +5,20 @@ import { Instructions } from './common/components/instructions'
 import { useLoadingAssets } from './common/hooks/use-loading-assets'
 import { Environment, MeshReflectorMaterial, PerspectiveCamera } from '@react-three/drei'
 import { EffectComposer, Vignette, ChromaticAberration, BrightnessContrast, ToneMapping } from '@react-three/postprocessing'
-import { BlendFunction } from 'postprocessing'
+import {
+    BlendFunction,
+    EffectComposer as PostEffectComposer,
+    EffectPass,
+    PixelationEffect,
+    RenderPass as PostRenderPass,
+} from 'postprocessing'
 import { useFrame, useThree } from '@react-three/fiber'
 import { CuboidCollider, Physics, RigidBody } from '@react-three/rapier'
 import { useControls, folder } from 'leva'
 import { useTexture } from '@react-three/drei'
 import { useRef, useEffect } from 'react'
 import * as THREE from 'three'
+import { EffectComposer as ThreeEffectComposer, HalftonePass, RenderPass } from 'three-stdlib'
 import { Player, PlayerControls } from './game/player'
 import { Ball } from './game/ball'
 import { SphereTool } from './game/sphere-tool'
@@ -82,6 +89,110 @@ const Scene = () => {
     )
 }
 
+function HalftoneComposer({
+    shape,
+    radius,
+    rotateRDeg,
+    rotateGDeg,
+    rotateBDeg,
+    scatter,
+    blending,
+    greyscale,
+}: {
+    shape: number
+    radius: number
+    rotateRDeg: number
+    rotateGDeg: number
+    rotateBDeg: number
+    scatter: number
+    blending: number
+    greyscale: boolean
+}) {
+    const { gl, scene, camera, size } = useThree()
+    const composerRef = useRef<ThreeEffectComposer | null>(null)
+    const halftoneRef = useRef<HalftonePass | null>(null)
+
+    useEffect(() => {
+        const composer = new ThreeEffectComposer(gl)
+        const renderPass = new RenderPass(scene, camera)
+        const halftonePass = new HalftonePass(size.width, size.height, {})
+        composer.addPass(renderPass)
+        composer.addPass(halftonePass)
+        composerRef.current = composer
+        halftoneRef.current = halftonePass
+
+        return () => {
+            composer.dispose()
+            composerRef.current = null
+            halftoneRef.current = null
+        }
+    }, [camera, gl, scene, size.height, size.width])
+
+    useEffect(() => {
+        composerRef.current?.setPixelRatio(gl.getPixelRatio())
+        composerRef.current?.setSize(size.width, size.height)
+        halftoneRef.current?.setSize(size.width, size.height)
+    }, [gl, size.height, size.width])
+
+    useEffect(() => {
+        const uniforms = halftoneRef.current?.uniforms
+        if (!uniforms) return
+        uniforms.shape.value = shape
+        uniforms.radius.value = radius
+        uniforms.rotateR.value = THREE.MathUtils.degToRad(rotateRDeg)
+        uniforms.rotateG.value = THREE.MathUtils.degToRad(rotateGDeg)
+        uniforms.rotateB.value = THREE.MathUtils.degToRad(rotateBDeg)
+        uniforms.scatter.value = scatter
+        uniforms.blending.value = blending
+        uniforms.greyscale.value = greyscale ? 1 : 0
+        uniforms.disable.value = 0
+    }, [blending, greyscale, radius, rotateBDeg, rotateGDeg, rotateRDeg, scatter, shape])
+
+    useFrame((_, delta) => {
+        composerRef.current?.render(delta)
+    }, 1)
+
+    return null
+}
+
+function PixelationComposer({ granularity }: { granularity: number }) {
+    const { gl, scene, camera, size } = useThree()
+    const composerRef = useRef<PostEffectComposer | null>(null)
+    const pixelationRef = useRef<PixelationEffect | null>(null)
+
+    useEffect(() => {
+        const composer = new PostEffectComposer(gl)
+        const renderPass = new PostRenderPass(scene, camera)
+        const pixelation = new PixelationEffect(granularity)
+        const effectPass = new EffectPass(camera, pixelation)
+        composer.addPass(renderPass)
+        composer.addPass(effectPass)
+        composerRef.current = composer
+        pixelationRef.current = pixelation
+
+        return () => {
+            composer.dispose()
+            composerRef.current = null
+            pixelationRef.current = null
+        }
+    }, [camera, gl, granularity, scene])
+
+    useEffect(() => {
+        composerRef.current?.setSize(size.width, size.height)
+    }, [gl, size.height, size.width])
+
+    useEffect(() => {
+        if (!pixelationRef.current) return
+        pixelationRef.current.granularity = granularity
+    }, [granularity])
+
+    useFrame((_, delta) => {
+        composerRef.current?.render(delta)
+    }, 1)
+
+    return null
+}
+
 export function App() {
     const loading = useLoadingAssets()
     const directionalLightRef = useRef<THREE.DirectionalLight>(null)
@@ -119,7 +230,18 @@ export function App() {
         contrast,
         colorGradingEnabled,
         toneMapping,
-        toneMappingExposure
+        toneMappingExposure,
+        halftoneEnabled,
+        halftoneShape,
+        halftoneRadius,
+        halftoneRotateR,
+        halftoneRotateG,
+        halftoneRotateB,
+        halftoneScatter,
+        halftoneBlending,
+        halftoneGreyscale,
+        pixelationEnabled,
+        pixelationGranularity,
     } = useControls({
         fog: folder({
             fogEnabled: true,
@@ -136,13 +258,13 @@ export function App() {
         postProcessing: folder({
             enablePostProcessing: true,
             vignetteEnabled: true,
-            vignetteOffset: { value: 0.5, min: 0, max: 1, step: 0.1 },
-            vignetteDarkness: { value: 0.5, min: 0, max: 1, step: 0.1 },
+            vignetteOffset: { value: 0.8, min: 0, max: 1, step: 0.1 },
+            vignetteDarkness: { value: 0.4, min: 0, max: 1, step: 0.1 },
             chromaticAberrationEnabled: true,
-            chromaticAberrationOffset: { value: 0.0005, min: 0, max: 0.01, step: 0.0001 },
+            chromaticAberrationOffset: { value: 0, min: 0, max: 0.01, step: 0.0001 },
             brightnessContrastEnabled: true,
-            brightness: { value: 0.1, min: -1, max: 1, step: 0.1 },
-            contrast: { value: 0.1, min: -1, max: 1, step: 0.1 },
+            brightness: { value: 0, min: -1, max: 1, step: 0.1 },
+            contrast: { value: 0.2, min: -1, max: 1, step: 0.1 },
             colorGradingEnabled: true,
             toneMapping: { 
                 value: THREE.ACESFilmicToneMapping,
@@ -153,7 +275,21 @@ export function App() {
                     'Linear': THREE.LinearToneMapping
                 }
             },
-            toneMappingExposure: { value: 1.2, min: 0, max: 2, step: 0.1 }
+            toneMappingExposure: { value: 1.2, min: 0, max: 2, step: 0.1 },
+            halftoneEnabled: false,
+            halftoneShape: {
+                value: 1,
+                options: { Dot: 1, Ellipse: 2, Line: 3, Square: 4, Diamond: 5 },
+            },
+            halftoneRadius: { value: 4, min: 1, max: 25, step: 1 },
+            halftoneRotateR: { value: 15, min: 0, max: 90, step: 1 },
+            halftoneRotateG: { value: 30, min: 0, max: 90, step: 1 },
+            halftoneRotateB: { value: 45, min: 0, max: 90, step: 1 },
+            halftoneScatter: { value: 0, min: 0, max: 1, step: 0.01 },
+            halftoneBlending: { value: 1, min: 0, max: 1, step: 0.01 },
+            halftoneGreyscale: false,
+            pixelationEnabled: false,
+            pixelationGranularity: { value: 8, min: 1, max: 64, step: 1 },
         }, { collapsed: true, hidden: true })
     }, {
         collapsed: true,
@@ -297,36 +433,53 @@ export function App() {
                     far={1000}
                 />
 
-                {enablePostProcessing && (
-                    <EffectComposer>
-                        {vignetteEnabled && (
-                            <Vignette
-                                offset={vignetteOffset}
-                                darkness={vignetteDarkness}
-                                eskil={false}
-                            />
-                        )}
-                        {chromaticAberrationEnabled && (
-                            <ChromaticAberration
-                                offset={new THREE.Vector2(chromaticAberrationOffset, chromaticAberrationOffset)}
-                                radialModulation={false}
-                                modulationOffset={0}
-                            />
-                        )}
-                        {brightnessContrastEnabled && (
-                            <BrightnessContrast
-                                brightness={brightness}
-                                contrast={contrast} 
-                            />
-                        )}
-                        {colorGradingEnabled && (
-                            <ToneMapping
-                                blendFunction={BlendFunction.NORMAL}
-                                mode={toneMapping}
-                            />
-                        )}
-                    </EffectComposer>
-                )}
+                {enablePostProcessing &&
+                    (halftoneEnabled ? (
+                        <HalftoneComposer
+                            shape={halftoneShape}
+                            radius={halftoneRadius}
+                            rotateRDeg={halftoneRotateR}
+                            rotateGDeg={halftoneRotateG}
+                            rotateBDeg={halftoneRotateB}
+                            scatter={halftoneScatter}
+                            blending={halftoneBlending}
+                            greyscale={halftoneGreyscale}
+                        />
+                    ) : pixelationEnabled ? (
+                        <PixelationComposer granularity={pixelationGranularity} />
+                    ) : (
+                        <EffectComposer>
+                            {vignetteEnabled && (
+                                <Vignette
+                                    offset={vignetteOffset}
+                                    darkness={vignetteDarkness}
+                                    eskil={false}
+                                />
+                            )}
+                            {chromaticAberrationEnabled && (
+                                <ChromaticAberration
+                                    offset={new THREE.Vector2(
+                                        chromaticAberrationOffset,
+                                        chromaticAberrationOffset,
+                                    )}
+                                    radialModulation={false}
+                                    modulationOffset={0}
+                                />
+                            )}
+                            {brightnessContrastEnabled && (
+                                <BrightnessContrast
+                                    brightness={brightness}
+                                    contrast={contrast}
+                                />
+                            )}
+                            {colorGradingEnabled && (
+                                <ToneMapping
+                                    blendFunction={BlendFunction.NORMAL}
+                                    mode={toneMapping}
+                                />
+                            )}
+                        </EffectComposer>
+                    ))}
             </Canvas>
 
             <Crosshair />

@@ -84,7 +84,7 @@
     },
     {
       "assetId": "primitives/cube",
-      "category": "static-prop",
+      "category": "static-bulk",
       "position": [
         1.6147722725916447,
         2.9119791383204197,
@@ -121,6 +121,134 @@
         10.156357320787748
       ],
       "id": "inst_pod8402s_moax9qsr"
+    },
+    {
+      "assetId": "lights/point",
+      "category": "light",
+      "position": [
+        5.063357028875528,
+        4.4662702260396285,
+        -1.13970983750916
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "props": {
+        "lightKind": "spot",
+        "color": "#ffffff",
+        "intensity": 500,
+        "distance": 26,
+        "decay": 2,
+        "castShadow": false
+      },
+      "id": "inst_zlbdsbvn_moaxw5y2"
+    },
+    {
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        2.6147722725916447,
+        2.9119791383204197,
+        3.203935934195724
+      ],
+      "rotation": [
+        3.141592653589793,
+        -1.5479856863126986,
+        3.141592653589793
+      ],
+      "scale": [
+        0.5824998170823781,
+        3.8977465408129897,
+        10.156357320787748
+      ],
+      "id": "inst_j6n38gkn_moaxwme9"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        3.6590690797495244,
+        2.855993004640431,
+        0.049912011318853367
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        0.61,
+        0.9
+      ],
+      "id": "inst_19fdgylh_moay8zv9"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -4.984905349736442,
+        2.673120373011151,
+        -7.399094939692062
+      ],
+      "rotation": [
+        0,
+        0.4,
+        0
+      ],
+      "scale": [
+        1,
+        2.41,
+        0.9
+      ],
+      "id": "inst_pp1llkvi_moaydr9q"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -3.984905349736442,
+        8.30000389808373,
+        -6.399094939692062
+      ],
+      "rotation": [
+        0,
+        0.4,
+        0
+      ],
+      "scale": [
+        1,
+        2.41,
+        0.9
+      ],
+      "id": "inst_zq74x8mu_moaye452"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -2.984905349736442,
+        67.20974063887763,
+        -5.399094939692062
+      ],
+      "rotation": [
+        0,
+        0.4,
+        0
+      ],
+      "scale": [
+        1,
+        2.41,
+        0.9
+      ],
+      "id": "inst_o7z6sm7z_moayigz3"
     }
   ]
 }
