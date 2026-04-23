@@ -12,6 +12,8 @@ export function Toolbar() {
     const toggleColliders = useEditorStore((s) => s.toggleColliders)
     const showGrid = useEditorStore((s) => s.showGrid)
     const toggleGrid = useEditorStore((s) => s.toggleGrid)
+    const previewLighting = useEditorStore((s) => s.previewLighting)
+    const togglePreviewLighting = useEditorStore((s) => s.togglePreviewLighting)
     const undo = useEditorStore((s) => s.undo)
     const redo = useEditorStore((s) => s.redo)
     const canUndo = useEditorStore((s) => s.past.length > 0)
@@ -84,6 +86,11 @@ export function Toolbar() {
 
             <ToggleButton label="Grid" active={showGrid} onClick={toggleGrid} />
             <ToggleButton label="Colliders" active={showColliders} onClick={toggleColliders} />
+            <ToggleButton
+                label="Preview Lighting"
+                active={previewLighting}
+                onClick={togglePreviewLighting}
+            />
 
             <div className="h-6 w-px bg-neutral-800 mx-1" />
 

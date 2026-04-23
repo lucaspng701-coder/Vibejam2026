@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
+import { Environment, Grid, OrbitControls, TransformControls, useGLTF } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
 import { memo, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -15,11 +15,13 @@ import { useMeshRegistry } from '../state/mesh-registry'
 import { Workplane } from './Workplane'
 import { resolveAssetUrl } from '../../level/asset-catalog'
 import { lightKindFromAssetId } from '../../level/LevelLoader'
+import { applyTintToObject } from '../../level/tint'
 
 export function EditorScene() {
     const showGrid = useEditorStore((s) => s.showGrid)
     const showColliders = useEditorStore((s) => s.showColliders)
     const instances = useEditorStore((s) => s.instances)
+    const previewLighting = useEditorStore((s) => s.previewLighting)
 
     return (
         <Canvas
@@ -30,19 +32,49 @@ export function EditorScene() {
                 useEditorStore.getState().select(null)
             }}
         >
-            <color attach="background" args={['#1a1d22']} />
-            <ambientLight intensity={0.8} />
-            <directionalLight
-                position={[10, 20, 10]}
-                intensity={1}
-                castShadow
-                shadow-mapSize={[2048, 2048]}
-                shadow-camera-left={-30}
-                shadow-camera-right={30}
-                shadow-camera-top={30}
-                shadow-camera-bottom={-30}
-                shadow-bias={-0.0001}
-            />
+            {previewLighting ? (
+                <>
+                    {/* Match App.tsx defaults so the editor previews the real game look. */}
+                    <fog attach="fog" args={['#dbdbdb', 13, 95]} />
+                    <Environment
+                        preset="sunset"
+                        background
+                        blur={0.8}
+                        resolution={256}
+                    />
+                    <ambientLight intensity={1.3} />
+                    <directionalLight
+                        position={[10, 20, 10]}
+                        intensity={1}
+                        castShadow
+                        shadow-mapSize={[4096, 4096]}
+                        shadow-camera-left={-30}
+                        shadow-camera-right={30}
+                        shadow-camera-top={30}
+                        shadow-camera-bottom={-30}
+                        shadow-camera-near={1}
+                        shadow-camera-far={150}
+                        shadow-bias={-0.0001}
+                        shadow-normalBias={0.02}
+                    />
+                </>
+            ) : (
+                <>
+                    <color attach="background" args={['#1a1d22']} />
+                    <ambientLight intensity={0.8} />
+                    <directionalLight
+                        position={[10, 20, 10]}
+                        intensity={1}
+                        castShadow
+                        shadow-mapSize={[2048, 2048]}
+                        shadow-camera-left={-30}
+                        shadow-camera-right={30}
+                        shadow-camera-top={30}
+                        shadow-camera-bottom={-30}
+                        shadow-bias={-0.0001}
+                    />
+                </>
+            )}
 
             <Workplane />
 
@@ -79,10 +111,15 @@ const EditorInstance = memo(function EditorInstance({ instance }: { instance: In
     const selectedId = useEditorStore((s) => s.selectedId)
     const select = useEditorStore((s) => s.select)
     const registerMesh = useMeshRegistry((s) => s.set)
+    const previewLighting = useEditorStore((s) => s.previewLighting)
 
     const groupRef = useRef<THREE.Group>(null)
     const isSelected = selectedId === instance.id
     const color = CATEGORY_DEFAULTS[instance.category].debugColor
+    // `props.color` is the light color for lights, otherwise it's a debug tint
+    // applied to the material(s).
+    const tintColor =
+        instance.category !== 'light' ? (instance.props?.color as string | undefined) : undefined
 
     useEffect(() => {
         if (!groupRef.current) return
@@ -105,13 +142,68 @@ const EditorInstance = memo(function EditorInstance({ instance }: { instance: In
             }}
         >
             {instance.category === 'light' ? (
-                <LightPreview instance={instance} highlighted={isSelected} />
+                <>
+                    <LightPreview instance={instance} highlighted={isSelected} />
+                    {previewLighting && <ActiveLightEmitter instance={instance} />}
+                </>
             ) : (
-                <AssetPreview assetId={instance.assetId} color={color} highlighted={isSelected} />
+                <AssetPreview
+                    assetId={instance.assetId}
+                    color={color}
+                    tintColor={tintColor}
+                    highlighted={isSelected}
+                />
             )}
         </group>
     )
 })
+
+/**
+ * Mirrors the in-game `LightInstance` from LevelLoader, but consumed here
+ * directly so selecting / transforming a light in the editor shows the real
+ * radius/cone/shadow it will cast at runtime.
+ *
+ * The parent group already applies position/rotation; this component just
+ * spawns the emitter at local origin.
+ */
+function ActiveLightEmitter({ instance }: { instance: Instance }) {
+    const kind = instance.props?.lightKind ?? lightKindFromAssetId(instance.assetId)
+    const color = instance.props?.color ?? '#ffffff'
+    const intensity = instance.props?.intensity ?? 1
+    const castShadow = instance.props?.castShadow ?? false
+
+    if (kind === 'spot') {
+        return (
+            <spotLight
+                color={color}
+                intensity={intensity}
+                distance={instance.props?.distance ?? 0}
+                decay={instance.props?.decay ?? 2}
+                angle={instance.props?.angle ?? Math.PI / 6}
+                penumbra={instance.props?.penumbra ?? 0.2}
+                castShadow={castShadow}
+            />
+        )
+    }
+    if (kind === 'directional') {
+        return (
+            <directionalLight
+                color={color}
+                intensity={intensity}
+                castShadow={castShadow}
+            />
+        )
+    }
+    return (
+        <pointLight
+            color={color}
+            intensity={intensity}
+            distance={instance.props?.distance ?? 0}
+            decay={instance.props?.decay ?? 2}
+            castShadow={castShadow}
+        />
+    )
+}
 
 function LightPreview({ instance, highlighted }: { instance: Instance; highlighted: boolean }) {
     const kind = instance.props?.lightKind ?? lightKindFromAssetId(instance.assetId)
@@ -164,17 +256,20 @@ function LightPreview({ instance, highlighted }: { instance: Instance; highlight
 function AssetPreview({
     assetId,
     color,
+    tintColor,
     highlighted,
 }: {
     assetId: string
     color: string
+    tintColor?: string
     highlighted: boolean
 }) {
     if (!assetId.startsWith('primitives/')) {
-        return <GlbPreview assetId={assetId} />
+        return <GlbPreview assetId={assetId} tintColor={tintColor} />
     }
 
     const kind = assetId.slice('primitives/'.length)
+    const renderColor = tintColor ?? color
 
     return (
         <mesh castShadow receiveShadow>
@@ -186,7 +281,7 @@ function AssetPreview({
                 <boxGeometry args={[1, 1, 1]} />
             )}
             <meshStandardMaterial
-                color={color}
+                color={renderColor}
                 roughness={0.8}
                 metalness={0.05}
                 emissive={highlighted ? '#ffffff' : '#000000'}
@@ -196,7 +291,7 @@ function AssetPreview({
     )
 }
 
-function GlbPreview({ assetId }: { assetId: string }) {
+function GlbPreview({ assetId, tintColor }: { assetId: string; tintColor?: string }) {
     const url = resolveAssetUrl(assetId)
     const gltf = useGLTF(url)
 
@@ -207,10 +302,16 @@ function GlbPreview({ assetId }: { assetId: string }) {
             if (mesh.isMesh) {
                 mesh.castShadow = true
                 mesh.receiveShadow = true
+                if (Array.isArray(mesh.material)) {
+                    mesh.material = mesh.material.map((m) => m.clone())
+                } else if (mesh.material) {
+                    mesh.material = mesh.material.clone()
+                }
             }
         })
+        applyTintToObject(clone, tintColor)
         return clone
-    }, [gltf.scene])
+    }, [gltf.scene, tintColor])
 
     return <primitive object={sceneClone} />
 }

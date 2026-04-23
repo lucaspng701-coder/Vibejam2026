@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { getAssetMeta, resolveAssetUrl, resolveFracturedAssetId } from './asset-catalog'
 import { CATEGORY_DEFAULTS } from './colliderFactory'
+import { applyTintToMaterial, applyTintToObject } from './tint'
 import type { Instance, LevelFile, LightKind, Vec3 } from './types'
 
 interface LevelLoaderProps {
@@ -115,6 +116,8 @@ function LevelInstance({
     const defaults = CATEGORY_DEFAULTS[category]
     const meta = getAssetMeta(assetId)
     const mass = props?.mass ?? meta?.mass ?? defaults.defaultMass
+    // `props.color` doubles as a debug tint for non-light categories.
+    const tintColor = category !== 'light' ? (props?.color as string | undefined) : undefined
 
     if (category === 'light') {
         return <LightInstance instance={instance} />
@@ -124,7 +127,11 @@ function LevelInstance({
         return (
             <group position={position} rotation={rotation}>
                 <group scale={scale}>
-                    <AssetMesh assetId={assetId} color={defaults.debugColor} />
+                    <AssetMesh
+                        assetId={assetId}
+                        color={defaults.debugColor}
+                        tintColor={tintColor}
+                    />
                 </group>
             </group>
         )
@@ -135,6 +142,7 @@ function LevelInstance({
             <BreakableInstance
                 instance={instance}
                 breakableThresholdOverride={breakableThresholdOverride}
+                tintColor={tintColor}
             />
         )
     }
@@ -150,7 +158,11 @@ function LevelInstance({
             restitution={0}
         >
             <group scale={scale}>
-                <AssetMesh assetId={assetId} color={defaults.debugColor} />
+                <AssetMesh
+                    assetId={assetId}
+                    color={defaults.debugColor}
+                    tintColor={tintColor}
+                />
             </group>
         </RigidBody>
     )
@@ -210,15 +222,18 @@ function LightInstance({ instance }: { instance: Instance }) {
 function AssetMesh({
     assetId,
     color,
+    tintColor,
 }: {
     assetId: string
     color: string
+    tintColor?: string
 }) {
     if (!assetId.startsWith('primitives/')) {
-        return <GlbMesh assetId={assetId} />
+        return <GlbMesh assetId={assetId} tintColor={tintColor} />
     }
 
     const kind = assetId.slice('primitives/'.length)
+    const renderColor = tintColor ?? color
 
     return (
         <mesh castShadow receiveShadow>
@@ -229,12 +244,12 @@ function AssetMesh({
             ) : (
                 <boxGeometry args={[1, 1, 1]} />
             )}
-            <meshStandardMaterial color={color} roughness={0.8} metalness={0.05} />
+            <meshStandardMaterial color={renderColor} roughness={0.8} metalness={0.05} />
         </mesh>
     )
 }
 
-function GlbMesh({ assetId }: { assetId: string }) {
+function GlbMesh({ assetId, tintColor }: { assetId: string; tintColor?: string }) {
     const url = resolveAssetUrl(assetId)
     const gltf = useGLTF(url)
     const sceneClone = useMemo(() => {
@@ -244,10 +259,19 @@ function GlbMesh({ assetId }: { assetId: string }) {
             if (mesh.isMesh) {
                 mesh.castShadow = true
                 mesh.receiveShadow = true
+                // Ensure the clone has its own material instances before we
+                // tint them, otherwise mutation would leak to every user of
+                // the cached gltf. Array materials are cloned per-entry.
+                if (Array.isArray(mesh.material)) {
+                    mesh.material = mesh.material.map((m) => m.clone())
+                } else if (mesh.material) {
+                    mesh.material = mesh.material.clone()
+                }
             }
         })
+        applyTintToObject(clone, tintColor)
         return clone
-    }, [gltf.scene])
+    }, [gltf.scene, tintColor])
 
     return <primitive object={sceneClone} />
 }
@@ -269,9 +293,11 @@ interface BreakSnapshot {
 function BreakableInstance({
     instance,
     breakableThresholdOverride,
+    tintColor,
 }: {
     instance: Instance
     breakableThresholdOverride?: number
+    tintColor?: string
 }) {
     const { position, rotation, scale, assetId, props } = instance
     const meta = getAssetMeta(assetId)
@@ -340,7 +366,11 @@ function BreakableInstance({
                     }
                 >
                     <group scale={scale}>
-                        <AssetMesh assetId={assetId} color={CATEGORY_DEFAULTS.breakable.debugColor} />
+                        <AssetMesh
+                            assetId={assetId}
+                            color={CATEGORY_DEFAULTS.breakable.debugColor}
+                            tintColor={tintColor}
+                        />
                     </group>
                 </RigidBody>
             )}
@@ -352,6 +382,7 @@ function BreakableInstance({
                     instanceRotation={broken.rotation}
                     instanceScale={scale}
                     mass={debrisMass}
+                    tintColor={tintColor}
                 />
             )}
         </>
@@ -364,6 +395,7 @@ interface FracturedDebrisProps {
     instanceRotation: Vec3
     instanceScale: Vec3
     mass: number
+    tintColor?: string
 }
 
 interface ExtractedPiece {
@@ -386,9 +418,15 @@ function FracturedDebris({
     instanceRotation,
     instanceScale,
     mass,
+    tintColor,
 }: FracturedDebrisProps) {
     const url = resolveAssetUrl(assetId)
     const gltf = useGLTF(url)
+
+    const tintColorObj = useMemo(
+        () => (tintColor ? new THREE.Color(tintColor) : null),
+        [tintColor],
+    )
 
     const parts = useMemo<ExtractedPiece[]>(() => {
         const instanceMatrix = new THREE.Matrix4().compose(
@@ -421,6 +459,14 @@ function FracturedDebris({
                 ? src.material.map((m) => m.clone())
                 : src.material.clone()
 
+            if (tintColorObj) {
+                if (Array.isArray(material)) {
+                    material.forEach((m) => applyTintToMaterial(m, tintColorObj))
+                } else {
+                    applyTintToMaterial(material, tintColorObj)
+                }
+            }
+
             const mesh = new THREE.Mesh(geometry, material)
             mesh.castShadow = true
             mesh.receiveShadow = true
@@ -448,7 +494,7 @@ function FracturedDebris({
         })
 
         return extracted
-    }, [gltf.scene, instancePosition, instanceRotation, instanceScale])
+    }, [gltf.scene, instancePosition, instanceRotation, instanceScale, tintColorObj])
 
     return (
         <>

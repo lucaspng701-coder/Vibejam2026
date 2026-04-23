@@ -14,6 +14,7 @@ interface EditorState {
     mode: GizmoMode
     showColliders: boolean
     showGrid: boolean
+    previewLighting: boolean
 
     // history
     past: HistoryEntry[]
@@ -24,6 +25,7 @@ interface EditorState {
     setMode: (mode: GizmoMode) => void
     toggleColliders: () => void
     toggleGrid: () => void
+    togglePreviewLighting: () => void
     select: (id: string | null) => void
 
     addInstance: (inst: Omit<Instance, 'id'> & { id?: string }) => string
@@ -66,6 +68,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     mode: 'translate',
     showColliders: false,
     showGrid: true,
+    previewLighting: false,
     past: [],
     future: [],
 
@@ -73,6 +76,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     setMode: (mode) => set({ mode }),
     toggleColliders: () => set((s) => ({ showColliders: !s.showColliders })),
     toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+    togglePreviewLighting: () => set((s) => ({ previewLighting: !s.previewLighting })),
     select: (id) => set({ selectedId: id }),
 
     addInstance: (inst) => {

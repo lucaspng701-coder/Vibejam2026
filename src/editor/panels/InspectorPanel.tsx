@@ -87,6 +87,43 @@ export function InspectorPanel() {
                         />
                     )}
 
+                    {!isLight && (
+                        <Field label="Tint color (debug)">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="color"
+                                    value={(instance.props?.color as string) ?? '#ffffff'}
+                                    onChange={(e) =>
+                                        updateProps(selectedId, { color: e.target.value })
+                                    }
+                                    className="h-7 w-12 rounded border border-neutral-700 bg-neutral-900"
+                                />
+                                <input
+                                    type="text"
+                                    value={(instance.props?.color as string) ?? ''}
+                                    placeholder="auto"
+                                    onChange={(e) =>
+                                        updateProps(selectedId, {
+                                            color: e.target.value || undefined,
+                                        })
+                                    }
+                                    className="flex-1 bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs font-mono"
+                                />
+                                {instance.props?.color !== undefined && (
+                                    <button
+                                        onClick={() =>
+                                            updateProps(selectedId, { color: undefined })
+                                        }
+                                        className="text-[10px] px-2 py-1 rounded border border-neutral-700 hover:bg-neutral-800"
+                                        title="Limpar tint"
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                            </div>
+                        </Field>
+                    )}
+
                     {(instance.category === 'dynamic' || instance.category === 'breakable') && (
                         <Field label="Mass">
                             <NumberInput

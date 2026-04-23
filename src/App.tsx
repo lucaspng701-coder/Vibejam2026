@@ -155,6 +155,29 @@ function HalftoneComposer({
     return null
 }
 
+/**
+ * Toggles `gl.shadowMap.enabled` at the WebGL level so every light's shadow
+ * pass is skipped (rather than juggling `castShadow` on individual lights and
+ * meshes). We also force a one-shot rebuild + material refresh so materials
+ * that had shader programs baked with shadow sampling stop reading the depth
+ * texture immediately.
+ */
+function ShadowToggle({ enabled }: { enabled: boolean }) {
+    const gl = useThree((s) => s.gl)
+    const scene = useThree((s) => s.scene)
+    useEffect(() => {
+        gl.shadowMap.enabled = enabled
+        gl.shadowMap.needsUpdate = true
+        scene.traverse((obj) => {
+            const mesh = obj as THREE.Mesh
+            if (!mesh.isMesh || !mesh.material) return
+            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+            for (const m of mats) m.needsUpdate = true
+        })
+    }, [enabled, gl, scene])
+    return null
+}
+
 function PixelationComposer({ granularity }: { granularity: number }) {
     const { gl, scene, camera, size } = useThree()
     const composerRef = useRef<PostEffectComposer | null>(null)
@@ -316,6 +339,26 @@ export function App() {
         { collapsed: true },
     )
 
+    const {
+        skyboxMode,
+        backgroundColor,
+        environmentIBL,
+        shadowsEnabled,
+    } = useControls(
+        'Debug',
+        {
+            skyboxMode: {
+                value: 'environment' as 'environment' | 'solid',
+                options: { 'Environment (sunset)': 'environment', 'Solid color': 'solid' },
+                label: 'background',
+            },
+            backgroundColor: { value: '#1a1d22', label: 'bg color' },
+            environmentIBL: { value: true, label: 'IBL (lighting)' },
+            shadowsEnabled: { value: true, label: 'shadows' },
+        },
+        { collapsed: false },
+    )
+
     const levelSrc = levelJsonPath(levelPreset)
 
     return (
@@ -359,18 +402,31 @@ export function App() {
 
             <Canvas>
                 <FpsMonitorCollector />
+                <ShadowToggle enabled={shadowsEnabled} />
                 {fogEnabled && <fog attach="fog" args={[fogColor, fogNear, fogFar]} />}
-                <Environment
-                    preset="sunset"
-                    intensity={1}
-                    background
-                    blur={0.8}
-                    resolution={256}
-                />
+
+                {skyboxMode === 'solid' && (
+                    <color attach="background" args={[backgroundColor]} />
+                )}
+                {/* Environment is kept (even with solid bg) only when IBL is
+                    requested, because drei's Environment needs `background` to
+                    render the sky AND can contribute IBL to PBR materials with
+                    `background={false}`. */}
+                {skyboxMode === 'environment' ? (
+                    <Environment
+                        preset="sunset"
+                        intensity={1}
+                        background
+                        blur={0.8}
+                        resolution={256}
+                    />
+                ) : environmentIBL ? (
+                    <Environment preset="sunset" blur={0.8} resolution={256} />
+                ) : null}
 
                 <ambientLight intensity={ambientIntensity} />
                 <directionalLight
-                    castShadow
+                    castShadow={shadowsEnabled}
                     position={[directionalDistance, directionalHeight, directionalDistance]}
                     ref={directionalLightRef}
                     intensity={directionalIntensity}
