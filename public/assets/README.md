@@ -43,17 +43,19 @@ Ao lado de `crate.glb`, crie `crate.meta.json`:
 {
     "category": "breakable",
     "mass": 8,
-    "fractureThreshold": 30,
+    "fractureThreshold": 20,
     "fracturedAssetId": "breakables/crate_fractured",
-    "debrisMass": 0.6,
-    "debrisLifetimeMs": 6000
+    "debrisMass": 0.6
 }
 ```
 
-- `fractureThreshold` — magnitude mínima do impulso (N·s) para quebrar.
+- `fractureThreshold` — **velocidade mínima (m/s)** do corpo que colide para quebrar. `0` = indestrutível.
+  - Balas atuais voam a ~45 m/s → threshold 15–25 quebra com tiro.
+  - Chão e paredes têm velocidade 0, então nunca disparam a fratura (o crate pode cair em cima sem quebrar).
 - `debrisMass` — massa de cada pedaço após a fratura.
-- `debrisLifetimeMs` — após esse tempo parado, pedaços são despawnados.
 - `fracturedAssetId` — se omitido, o loader usa a convenção `<assetId>_fractured`.
+- Os pedaços usam collider `hull` (convex hull), que para Voronoi fracture casa 1:1 com a forma visual.
+- Debris **não despawna automaticamente**, fica na cena até o level ser recarregado.
 
 ## Dicas de tamanho
 

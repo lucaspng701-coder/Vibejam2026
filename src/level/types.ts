@@ -5,7 +5,10 @@ export type Category = 'static-bulk' | 'static-prop' | 'dynamic' | 'breakable'
 export interface InstanceProps {
     /** kg; usado em dynamic/breakable. Default vem do meta do asset ou da categoria. */
     mass?: number
-    /** Magnitude mínima de impulso para fraturar (apenas breakable). */
+    /**
+     * Velocidade mínima (m/s) do corpo que colide com o breakable para que ele frature.
+     * 0 = indestrutível. Só considera corpos dinâmicos (estáticos têm velocidade 0).
+     */
     fractureThreshold?: number
     /** assetId da variante fraturada (apenas breakable). */
     fracturedAssetId?: string

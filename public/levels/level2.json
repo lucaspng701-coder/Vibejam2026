@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "name": "untitled",
+  "instances": [
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -4.8033223532239635,
+        1.6504908038367283,
+        0.6320691105587635
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1.21,
+        0.91
+      ],
+      "id": "inst_43cdob3l_moarzapi"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -3.8033223532239635,
+        4.640066250361545,
+        -10.388391244795491
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        3.91,
+        1.71
+      ],
+      "id": "inst_7l884lyk_moarzo66"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -4.634388300128307,
+        4.213493400730959,
+        10.801114702270427
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        3.91,
+        1.71
+      ],
+      "id": "inst_41fq8rp2_moarzqim"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -5.0033,
+        3.674155742682058,
+        1.6320691105587635
+      ],
+      "rotation": [
+        -0.3,
+        0,
+        0
+      ],
+      "scale": [
+        0.2,
+        0.2,
+        0.2
+      ],
+      "id": "inst_dzno771u_moas83k7"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -4.0033,
+        3.674155742682058,
+        -0.7106064891677999
+      ],
+      "rotation": [
+        -0.3,
+        0,
+        0
+      ],
+      "scale": [
+        0.2,
+        0.2,
+        0.2
+      ],
+      "id": "inst_ilrlkuld_moasbp2y"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -1.4791683963696005,
+        2.0164102471922742,
+        0.2893935108322001
+      ],
+      "rotation": [
+        -0.3,
+        0,
+        0
+      ],
+      "scale": [
+        0.2,
+        0.2,
+        0.2
+      ],
+      "id": "inst_ndk191cz_moasbxia"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -0.24644545956214126,
+        3.674155742682058,
+        0.2893935108322001
+      ],
+      "rotation": [
+        -0.3,
+        0,
+        0
+      ],
+      "scale": [
+        0.2,
+        0.2,
+        0.2
+      ],
+      "id": "inst_pniokwnc_moasc6m2"
+    }
+  ]
+}

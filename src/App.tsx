@@ -15,8 +15,8 @@ import * as THREE from 'three'
 import { Player, PlayerControls } from './game/player'
 import { Ball } from './game/ball'
 import { SphereTool } from './game/sphere-tool'
-import { Platforms } from './game/platforms'
 import { LevelLoader } from './level/LevelLoader'
+import { LEVEL_PRESETS, levelJsonPath, type LevelPreset } from './level/level-presets'
 
 const Scene = () => {
     const texture = useTexture('/final-texture.png')
@@ -160,13 +160,27 @@ export function App() {
         hidden: true
     })
 
-    const {
-        loadSampleLevel,
-        showColliders
-    } = useControls('Level', {
-        loadSampleLevel: { value: false, label: 'load sample.json' },
-        showColliders: { value: false, label: 'debug colliders' }
-    }, { collapsed: true })
+    const { levelPreset, showColliders, breakableThresholdOverride } = useControls(
+        'Level',
+        {
+            levelPreset: {
+                value: 'sample' as LevelPreset,
+                options: [...LEVEL_PRESETS],
+                label: 'level JSON',
+            },
+            showColliders: { value: false, label: 'debug colliders' },
+            breakableThresholdOverride: {
+                value: 16.5,
+                min: 0,
+                max: 80,
+                step: 0.5,
+                label: 'break speed m/s (0=never)',
+            },
+        },
+        { collapsed: true },
+    )
+
+    const levelSrc = levelJsonPath(levelPreset)
 
     return (
         <>
@@ -206,7 +220,7 @@ export function App() {
             </div>
 
             <FpsMonitorDisplay />
-            
+
             <Canvas>
                 <FpsMonitorCollector />
                 {fogEnabled && <fog attach="fog" args={[fogColor, fogNear, fogFar]} />}
@@ -263,8 +277,12 @@ export function App() {
                             }}
                         />
                     </PlayerControls>
-                    <Platforms />
-                    {loadSampleLevel && <LevelLoader src="/levels/sample.json" />}
+                    {levelSrc && (
+                        <LevelLoader
+                            src={levelSrc}
+                            breakableThresholdOverride={breakableThresholdOverride}
+                        />
+                    )}
                     <Ball />
 
                     <Scene />

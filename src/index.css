@@ -14,3 +14,18 @@ canvas {
   width: 100% !important;
   height: 100vh !important;
 }
+
+/* Revert the fullscreen canvas rule for stats.js panels inside the FPS monitor. */
+.fps-monitor,
+.fps-monitor * {
+  box-sizing: content-box;
+}
+.fps-monitor canvas {
+  width: 80px !important;
+  height: 48px !important;
+  display: block !important;
+}
+.fps-monitor > div {
+  width: 80px !important;
+  height: 48px !important;
+}

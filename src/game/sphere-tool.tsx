@@ -14,7 +14,7 @@ const RAINBOW_COLORS = [
     '#9400D3'  // Violet
 ]
 
-const SHOOT_FORCE = 45
+const SHOOT_FORCE = 80
 const SPHERE_OFFSET = {
     x: 0.12,  // Slightly to the right
     y: -0.27, // Lower below crosshair
@@ -37,7 +37,7 @@ const Sphere = ({ position, direction, color, radius }: SphereProps) => {
             linearDamping={0.1}
             restitution={0.5}
             colliders="ball"
-            mass={1}
+            mass={0.2}
             ccd={true}
             linearVelocity={[direction[0] * SHOOT_FORCE, direction[1] * SHOOT_FORCE, direction[2] * SHOOT_FORCE]}
         >
@@ -50,7 +50,7 @@ const Sphere = ({ position, direction, color, radius }: SphereProps) => {
 }
 
 export const SphereTool = () => {
-    const sphereRadius = 0.11
+    const sphereRadius = 0.35
     const MAX_AMMO = 50
 
     const camera = useThree((s) => s.camera)
