@@ -15,6 +15,7 @@ import { useMeshRegistry } from '../state/mesh-registry'
 import { Workplane } from './Workplane'
 import { resolveAssetUrl } from '../../level/asset-catalog'
 import { lightKindFromAssetId } from '../../level/LevelLoader'
+import { PrimitiveMesh, primitiveKindFromAssetId } from '../../level/primitive-mesh'
 import { applyTintToObject } from '../../level/tint'
 
 export function EditorScene() {
@@ -146,11 +147,14 @@ const EditorInstance = memo(function EditorInstance({ instance }: { instance: In
                     <LightPreview instance={instance} highlighted={isSelected} />
                     {previewLighting && <ActiveLightEmitter instance={instance} />}
                 </>
+            ) : instance.category === 'player' ? (
+                <PlayerPreview highlighted={isSelected} />
             ) : (
                 <AssetPreview
                     assetId={instance.assetId}
                     color={color}
                     tintColor={tintColor}
+                    instanceProps={instance.props}
                     highlighted={isSelected}
                 />
             )}
@@ -257,39 +261,68 @@ function AssetPreview({
     assetId,
     color,
     tintColor,
+    instanceProps,
     highlighted,
 }: {
     assetId: string
     color: string
     tintColor?: string
+    instanceProps?: import('../../level/types').InstanceProps
     highlighted: boolean
 }) {
     if (!assetId.startsWith('primitives/')) {
         return <GlbPreview assetId={assetId} tintColor={tintColor} />
     }
 
-    const kind = assetId.slice('primitives/'.length)
-    const renderColor = tintColor ?? color
+    const kind = primitiveKindFromAssetId(assetId) ?? 'cube'
+    const mergedProps = tintColor
+        ? { ...(instanceProps ?? {}), color: tintColor }
+        : instanceProps
+    return <PrimitiveMesh kind={kind} color={color} props={mergedProps} highlighted={highlighted} />
+}
+
+/**
+ * Preview visual do spawn do Player no editor: uma cápsula verde do tamanho
+ * da hitbox real (`CapsuleCollider args={[1, 0.5]}` → 2m altura, 0.5 raio)
+ * com o GLB da arma anexado do mesmo jeito que fica preso à câmera em game.
+ * Não tem física — só serve pra posicionar no editor.
+ */
+function PlayerPreview({ highlighted }: { highlighted: boolean }) {
+    const gltf = useGLTF('/fps.glb')
+    const weaponClone = useMemo(() => gltf.scene.clone(true), [gltf.scene])
 
     return (
-        <mesh castShadow receiveShadow>
-            {kind === 'sphere' ? (
-                <sphereGeometry args={[0.5, 24, 16]} />
-            ) : kind === 'cylinder' ? (
-                <cylinderGeometry args={[0.5, 0.5, 1, 24]} />
-            ) : (
-                <boxGeometry args={[1, 1, 1]} />
-            )}
-            <meshStandardMaterial
-                color={renderColor}
-                roughness={0.8}
-                metalness={0.05}
-                emissive={highlighted ? '#ffffff' : '#000000'}
-                emissiveIntensity={highlighted ? 0.25 : 0}
-            />
-        </mesh>
+        <group>
+            {/* Cápsula: CapsuleCollider(half-height=1, radius=0.5). A
+                capsuleGeometry do three é (radius, length, ...) onde length é
+                a parte cilíndrica; altura total = length + 2*radius. */}
+            <mesh castShadow>
+                <capsuleGeometry args={[0.5, 1, 4, 12]} />
+                <meshStandardMaterial
+                    color="#33cc66"
+                    roughness={0.6}
+                    metalness={0.1}
+                    emissive={highlighted ? '#66ff99' : '#000000'}
+                    emissiveIntensity={highlighted ? 0.3 : 0}
+                />
+            </mesh>
+            {/* Arma no "olho" da cápsula, apontando pro +Z do spawn, como
+                fica preso à câmera em runtime. Rotação e offsets copiados do
+                `Player.tsx` (x:0.1 y:-0.62 z:-0.2, rot Y:π, scale 0.7), só
+                que aqui o "frente" é world-space pra o editor. */}
+            <group position={[0.1, 0.4, 0.8]} rotation={[0, 0, 0]} scale={0.7}>
+                <primitive object={weaponClone} />
+            </group>
+            {/* Seta de direção pra deixar claro pra onde o player vai olhar. */}
+            <mesh position={[0, 0, 1.1]} rotation={[Math.PI / 2, 0, 0]}>
+                <coneGeometry args={[0.12, 0.3, 12]} />
+                <meshBasicMaterial color="#9dff9d" />
+            </mesh>
+        </group>
     )
 }
+
+useGLTF.preload('/fps.glb')
 
 function GlbPreview({ assetId, tintColor }: { assetId: string; tintColor?: string }) {
     const url = resolveAssetUrl(assetId)

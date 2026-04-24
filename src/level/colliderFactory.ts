@@ -51,6 +51,14 @@ export const CATEGORY_DEFAULTS: Record<Category, CategoryDefaults> = {
         defaultMass: 0,
         uniformScaleOnly: false,
     },
+    player: {
+        // Player não vira RigidBody a partir do loader; o jogo spawna o
+        // `<Player />` na posição da instância. Valores só pro editor/tipo.
+        bodyType: 'fixed',
+        debugColor: '#33cc66',
+        defaultMass: 0,
+        uniformScaleOnly: true,
+    },
 }
 
 export function bodyTypeFor(category: Category): BodyType {

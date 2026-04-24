@@ -1,74 +1,81 @@
 {
   "version": 1,
-  "name": "untitled",
+  "name": "level1",
   "instances": [
     {
-      "assetId": "breakables/crate",
-      "category": "static-prop",
-      "position": [
-        -4.823430676044106,
-        1,
-        -5.949659520614592
-      ],
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "scale": [
-        1,
-        1,
-        1
-      ],
-      "id": "inst_cvg5ug6d_moaup3rh"
+      "id": "player_spawn",
+      "assetId": "player/spawn",
+      "category": "player",
+      "position": [0, 2, 10],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1]
     },
     {
-      "assetId": "lights/point",
-      "category": "light",
-      "position": [
-        4.5,
-        4.5,
-        0
-      ],
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "scale": [
-        1,
-        1,
-        1
-      ],
-      "props": {
-        "lightKind": "point",
-        "color": "#ffffff",
-        "intensity": 500,
-        "distance": 10,
-        "decay": 2,
-        "castShadow": false
-      },
-      "id": "inst_zw6ed0p9_moaupfkz"
-    },
-    {
+      "id": "floor",
       "assetId": "primitives/cube",
-      "category": "static-prop",
-      "position": [
-        -0.5745787537931738,
-        3.5067586233825567,
-        -1.333689595133305
-      ],
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "scale": [
-        1,
-        1,
-        1
-      ],
-      "id": "inst_neldjxhc_moauptss"
+      "category": "static-bulk",
+      "position": [0, -0.1, 0],
+      "rotation": [0, 0, 0],
+      "scale": [50, 0.2, 50],
+      "props": {
+        "textureUrl": "/final-texture.png",
+        "textureScale": 12,
+        "reflector": true,
+        "reflectorMirror": 0,
+        "reflectorRoughness": 1
+      }
+    },
+    {
+      "id": "wall_east",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [25, 2, 0],
+      "rotation": [0, 0, 0],
+      "scale": [2, 4, 50],
+      "props": {
+        "textureUrl": "/final-texture.png",
+        "textureScale": 4,
+        "triplanar": true
+      }
+    },
+    {
+      "id": "wall_west",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [-25, 2, 0],
+      "rotation": [0, 0, 0],
+      "scale": [2, 4, 50],
+      "props": {
+        "textureUrl": "/final-texture.png",
+        "textureScale": 4,
+        "triplanar": true
+      }
+    },
+    {
+      "id": "wall_north",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [0, 2, 25],
+      "rotation": [0, 0, 0],
+      "scale": [50, 4, 2],
+      "props": {
+        "textureUrl": "/final-texture.png",
+        "textureScale": 4,
+        "triplanar": true
+      }
+    },
+    {
+      "id": "wall_south",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [0, 2, -25],
+      "rotation": [0, 0, 0],
+      "scale": [50, 4, 2],
+      "props": {
+        "textureUrl": "/final-texture.png",
+        "textureScale": 4,
+        "triplanar": true
+      }
     }
   ]
 }

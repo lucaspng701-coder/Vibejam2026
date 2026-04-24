@@ -8,6 +8,13 @@ export type Category =
     /** Só renderiza malha; sem corpo Rapier (decoração, decals, etc.). */
     | 'no-collision'
     | 'light'
+    /**
+     * Spawn do jogador. Singleton por level: o LevelLoader descarta duplicatas
+     * e o jogo usa a `position` desta instância pra posicionar o `<Player />`.
+     * No editor aparece como uma cápsula verde + GLB da arma só pra referência
+     * visual (não é renderizado no runtime do jogo).
+     */
+    | 'player'
 
 export type LightKind = 'point' | 'spot' | 'directional'
 
@@ -43,6 +50,33 @@ export interface InstanceProps {
     penumbra?: number
     /** Se a luz projeta sombras. */
     castShadow?: boolean
+
+    // ---- Material / surface (static-bulk, static-prop, no-collision) ----
+    /**
+     * URL pública de uma textura (ex: '/final-texture.png'). Se ausente, o
+     * material fica sólido (cor via `color` ou fallback da categoria).
+     */
+    textureUrl?: string
+    /**
+     * Quando `triplanar` é true, é o tamanho do tile em metros (world-space).
+     * Quando é false, age como `repeat` em UVs nativas do mesh (ambos eixos).
+     */
+    textureScale?: number
+    /**
+     * Projeção triplanar / box: UVs calculadas em world-space no shader, pra
+     * que escalar um cubo não estique a textura — a tile é fixa em metros.
+     * Implementado via `onBeforeCompile` no MeshStandardMaterial.
+     */
+    triplanar?: boolean
+    /**
+     * Substitui o material por `MeshReflectorMaterial` (drei). Usa-se em chão
+     * pra ter reflexo ambient. Combina com `textureUrl`/`triplanar`.
+     */
+    reflector?: boolean
+    /** Força do espelhamento (0 = sem reflexo, 1 = espelho puro). Default 0. */
+    reflectorMirror?: number
+    /** Rugosidade do reflector (0 = nítido, 1 = borrado). Default 1. */
+    reflectorRoughness?: number
 
     /** Permite extensão futura sem quebrar o schema. */
     [key: string]: unknown

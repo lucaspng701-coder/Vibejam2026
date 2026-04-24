@@ -81,11 +81,31 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     addInstance: (inst) => {
         const id = inst.id ?? genId()
-        set((s) => ({
-            ...pushHistory(s),
-            instances: [...s.instances, { ...inst, id }],
-            selectedId: id,
-        }))
+        set((s) => {
+            // Player é singleton por level: se já existir um, substitui a
+            // posição do antigo em vez de criar duplicado. Assim o usuário
+            // pode clicar "Add Player" quantas vezes quiser sem poluir o
+            // outliner.
+            if (inst.category === 'player') {
+                const existing = s.instances.find((i) => i.category === 'player')
+                if (existing) {
+                    return {
+                        ...pushHistory(s),
+                        instances: s.instances.map((i) =>
+                            i.id === existing.id
+                                ? { ...existing, position: inst.position, rotation: inst.rotation }
+                                : i,
+                        ),
+                        selectedId: existing.id,
+                    }
+                }
+            }
+            return {
+                ...pushHistory(s),
+                instances: [...s.instances, { ...inst, id }],
+                selectedId: id,
+            }
+        })
         return id
     },
 
@@ -99,6 +119,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     duplicateInstance: (id) => {
         const source = get().instances.find((i) => i.id === id)
         if (!source) return null
+        // Player é singleton: não permite duplicar.
+        if (source.category === 'player') return null
         const newId = genId()
         const clone: Instance = {
             ...source,
@@ -120,10 +142,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         })),
 
     updateCategory: (id, category) =>
-        set((s) => ({
-            ...pushHistory(s),
-            instances: s.instances.map((i) => (i.id === id ? { ...i, category } : i)),
-        })),
+        set((s) => {
+            // Impede ter 2 players por level: se o usuário tentar promover um
+            // objeto pra player com outro já existente, ignora a mudança.
+            if (category === 'player' && s.instances.some((i) => i.category === 'player' && i.id !== id)) {
+                console.warn('[editor] já existe um Player no level; category não alterada.')
+                return {}
+            }
+            return {
+                ...pushHistory(s),
+                instances: s.instances.map((i) => (i.id === id ? { ...i, category } : i)),
+            }
+        }),
 
     updateProps: (id, patch) =>
         set((s) => ({
@@ -139,14 +169,35 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             instances: s.instances.map((i) => (i.id === id ? { ...i, assetId } : i)),
         })),
 
-    loadLevel: (level) =>
+    loadLevel: (level) => {
+        // Enforce singleton do Player no load: mantém o primeiro encontrado,
+        // descarta os outros e loga aviso.
+        const seen = new Set<string>()
+        const sanitized: Instance[] = []
+        let droppedPlayers = 0
+        for (const inst of level.instances) {
+            if (inst.category === 'player') {
+                if (seen.has('player')) {
+                    droppedPlayers++
+                    continue
+                }
+                seen.add('player')
+            }
+            sanitized.push(inst)
+        }
+        if (droppedPlayers > 0) {
+            console.warn(
+                `[editor] level ${level.name} tinha ${droppedPlayers + 1} players; mantido apenas o primeiro.`,
+            )
+        }
         set({
             levelName: level.name,
-            instances: level.instances,
+            instances: sanitized,
             selectedId: null,
             past: [],
             future: [],
-        }),
+        })
+    },
 
     toLevelFile: () => ({
         version: 1,
@@ -183,7 +234,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 }))
 
 export function defaultInstanceFor(assetId: string, category: Category): Omit<Instance, 'id'> {
-    const pos: Vec3 = [0, 1, 0]
+    // Player spawna um pouco acima do chão pra não ficar enterrado na altura
+    // padrão da cápsula do Player (1m de meia-altura).
+    const pos: Vec3 = category === 'player' ? [0, 1.5, 0] : [0, 1, 0]
     return {
         assetId,
         category,
@@ -192,3 +245,10 @@ export function defaultInstanceFor(assetId: string, category: Category): Omit<In
         scale: [1, 1, 1],
     }
 }
+
+/**
+ * ID de asset "virtual" usado pra o Player singleton. Não corresponde a um
+ * GLB: no editor renderiza uma cápsula verde + o `fps.glb` da câmera do jogo
+ * como preview visual.
+ */
+export const PLAYER_ASSET_ID = 'player/spawn'

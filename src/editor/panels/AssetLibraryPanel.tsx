@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Category, Instance, LightKind } from '../../level/types'
-import { defaultInstanceFor, useEditorStore } from '../state/store'
+import { defaultInstanceFor, PLAYER_ASSET_ID, useEditorStore } from '../state/store'
 import { ASSET_CATALOG } from '../../level/asset-catalog'
 
 interface AssetEntry {
@@ -28,16 +28,26 @@ const CATEGORY_LABEL: Record<Category, string> = {
     breakable: 'Breakable',
     'no-collision': 'No collision',
     light: 'Light',
+    player: 'Player',
 }
 
 const CATEGORIES: Category[] = ['static-bulk', 'static-prop', 'dynamic', 'breakable', 'no-collision']
 
-type Tab = 'glbs' | 'primitives' | 'lights'
+type Tab = 'glbs' | 'primitives' | 'lights' | 'gameplay'
 
 export function AssetLibraryPanel() {
     const [tab, setTab] = useState<Tab>('glbs')
     const [defaultCat, setDefaultCat] = useState<Category>('static-prop')
     const addInstance = useEditorStore((s) => s.addInstance)
+    const hasPlayer = useEditorStore((s) =>
+        s.instances.some((i) => i.category === 'player'),
+    )
+    const selectPlayer = () => {
+        const existing = useEditorStore
+            .getState()
+            .instances.find((i) => i.category === 'player')
+        if (existing) useEditorStore.getState().select(existing.id)
+    }
 
     const glbEntries: AssetEntry[] = ASSET_CATALOG.filter((e) => !e.isFracturedVariant).map((e) => ({
         id: e.assetId,
@@ -78,6 +88,9 @@ export function AssetLibraryPanel() {
                 </TabBtn>
                 <TabBtn active={tab === 'lights'} onClick={() => setTab('lights')}>
                     Lights
+                </TabBtn>
+                <TabBtn active={tab === 'gameplay'} onClick={() => setTab('gameplay')}>
+                    Gameplay
                 </TabBtn>
 
                 <div className="flex-1" />
@@ -141,6 +154,23 @@ export function AssetLibraryPanel() {
                                 onAdd={() => addLight(light.kind, light.id)}
                             />
                         ))}
+
+                    {tab === 'gameplay' && (
+                        <AssetCard
+                            label={hasPlayer ? 'Player (já adicionado)' : 'Player Spawn'}
+                            sub={hasPlayer ? 'click pra selecionar' : PLAYER_ASSET_ID}
+                            icon="☻"
+                            iconColor="#33cc66"
+                            onAdd={
+                                hasPlayer
+                                    ? selectPlayer
+                                    : () =>
+                                          addInstance({
+                                              ...defaultInstanceFor(PLAYER_ASSET_ID, 'player'),
+                                          })
+                            }
+                        />
+                    )}
                 </div>
             </div>
         </div>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { getAssetMeta, resolveAssetUrl, resolveFracturedAssetId } from './asset-catalog'
 import { CATEGORY_DEFAULTS } from './colliderFactory'
+import { PrimitiveMesh, primitiveKindFromAssetId } from './primitive-mesh'
 import { applyTintToMaterial, applyTintToObject } from './tint'
 import type { Instance, LevelFile, LightKind, Vec3 } from './types'
 
@@ -11,9 +12,14 @@ interface LevelLoaderProps {
     src: string
     /** Overrides fractureThreshold for every breakable. 0 = indestructible. */
     breakableThresholdOverride?: number
+    /**
+     * Notificado quando o level é carregado. Usado pra extrair o spawn do
+     * player (singleton) e qualquer metadado extra que o jogo precise.
+     */
+    onLevelLoaded?: (level: LevelFile) => void
 }
 
-export function LevelLoader({ src, breakableThresholdOverride }: LevelLoaderProps) {
+export function LevelLoader({ src, breakableThresholdOverride, onLevelLoaded }: LevelLoaderProps) {
     const [level, setLevel] = useState<LevelFile | null>(null)
     const [error, setError] = useState<string | null>(null)
 
@@ -31,6 +37,7 @@ export function LevelLoader({ src, breakableThresholdOverride }: LevelLoaderProp
                 if (cancelled) return
                 if (data.version !== 1) throw new Error(`Level version ${data.version} não suportada`)
                 setLevel(data)
+                onLevelLoaded?.(data)
             })
             .catch((err) => {
                 if (cancelled) return
@@ -123,6 +130,12 @@ function LevelInstance({
         return <LightInstance instance={instance} />
     }
 
+    // Player é consumido pelo <App /> via `onLevelLoaded` (pra posicionar o
+    // controller). O loader não renderiza nada pra ele no jogo.
+    if (category === 'player') {
+        return null
+    }
+
     if (category === 'no-collision') {
         return (
             <group position={position} rotation={rotation}>
@@ -131,6 +144,7 @@ function LevelInstance({
                         assetId={assetId}
                         color={defaults.debugColor}
                         tintColor={tintColor}
+                        instanceProps={props}
                     />
                 </group>
             </group>
@@ -162,6 +176,7 @@ function LevelInstance({
                     assetId={assetId}
                     color={defaults.debugColor}
                     tintColor={tintColor}
+                    instanceProps={props}
                 />
             </group>
         </RigidBody>
@@ -223,30 +238,24 @@ function AssetMesh({
     assetId,
     color,
     tintColor,
+    instanceProps,
 }: {
     assetId: string
     color: string
     tintColor?: string
+    instanceProps?: import('./types').InstanceProps
 }) {
     if (!assetId.startsWith('primitives/')) {
         return <GlbMesh assetId={assetId} tintColor={tintColor} />
     }
 
-    const kind = assetId.slice('primitives/'.length)
-    const renderColor = tintColor ?? color
-
-    return (
-        <mesh castShadow receiveShadow>
-            {kind === 'sphere' ? (
-                <sphereGeometry args={[0.5, 24, 16]} />
-            ) : kind === 'cylinder' ? (
-                <cylinderGeometry args={[0.5, 0.5, 1, 24]} />
-            ) : (
-                <boxGeometry args={[1, 1, 1]} />
-            )}
-            <meshStandardMaterial color={renderColor} roughness={0.8} metalness={0.05} />
-        </mesh>
-    )
+    const kind = primitiveKindFromAssetId(assetId) ?? 'cube'
+    // O tint é repassado via props.color; o color default entra pra quando
+    // nem props.color nem textura estejam presentes.
+    const mergedProps = tintColor
+        ? { ...(instanceProps ?? {}), color: tintColor }
+        : instanceProps
+    return <PrimitiveMesh kind={kind} color={color} props={mergedProps} />
 }
 
 function GlbMesh({ assetId, tintColor }: { assetId: string; tintColor?: string }) {
@@ -370,6 +379,7 @@ function BreakableInstance({
                             assetId={assetId}
                             color={CATEGORY_DEFAULTS.breakable.debugColor}
                             tintColor={tintColor}
+                            instanceProps={props}
                         />
                     </group>
                 </RigidBody>

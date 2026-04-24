@@ -17,6 +17,7 @@ const CATEGORY_SELECT_LABEL: Record<Category, string> = {
     breakable: 'Breakable',
     'no-collision': 'No collision (visual)',
     light: 'Light',
+    player: 'Player (spawn)',
 }
 
 const LIGHT_KIND_OPTIONS: LightKind[] = ['point', 'spot', 'directional']
@@ -31,6 +32,7 @@ export function InspectorPanel() {
     const duplicateInstance = useEditorStore((s) => s.duplicateInstance)
 
     const isLight = instance?.category === 'light'
+    const isPlayer = instance?.category === 'player'
 
     return (
         <div className="flex flex-col h-full text-neutral-200 text-sm">
@@ -52,17 +54,25 @@ export function InspectorPanel() {
                     </Field>
 
                     <Field label="Category">
-                        <select
-                            value={instance.category}
-                            onChange={(e) => updateCategory(selectedId, e.target.value as Category)}
-                            className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm"
-                        >
-                            {CATEGORY_OPTIONS.map((c) => (
-                                <option key={c} value={c}>
-                                    {CATEGORY_SELECT_LABEL[c]}
-                                </option>
-                            ))}
-                        </select>
+                        {isPlayer ? (
+                            <div className="text-xs text-emerald-300 font-mono">
+                                {CATEGORY_SELECT_LABEL.player}
+                            </div>
+                        ) : (
+                            <select
+                                value={instance.category}
+                                onChange={(e) =>
+                                    updateCategory(selectedId, e.target.value as Category)
+                                }
+                                className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm"
+                            >
+                                {CATEGORY_OPTIONS.map((c) => (
+                                    <option key={c} value={c}>
+                                        {CATEGORY_SELECT_LABEL[c]}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </Field>
 
                     <Vec3Field
@@ -77,7 +87,7 @@ export function InspectorPanel() {
                         step={0.05}
                         onChange={(v) => updateTransform(selectedId, { rotation: v })}
                     />
-                    {!isLight && (
+                    {!isLight && !isPlayer && (
                         <Vec3Field
                             label="Scale"
                             value={instance.scale}
@@ -87,7 +97,7 @@ export function InspectorPanel() {
                         />
                     )}
 
-                    {!isLight && (
+                    {!isLight && !isPlayer && (
                         <Field label="Tint color (debug)">
                             <div className="flex items-center gap-2">
                                 <input
@@ -122,6 +132,15 @@ export function InspectorPanel() {
                                 )}
                             </div>
                         </Field>
+                    )}
+
+                    {(instance.category === 'static-bulk' ||
+                        instance.category === 'static-prop' ||
+                        instance.category === 'no-collision') && (
+                        <SurfaceFields
+                            props={instance.props ?? {}}
+                            onPatch={(p) => updateProps(selectedId, p)}
+                        />
                     )}
 
                     {(instance.category === 'dynamic' || instance.category === 'breakable') && (
@@ -185,6 +204,94 @@ export function InspectorPanel() {
                         </button>
                     </div>
                 </div>
+            )}
+        </div>
+    )
+}
+
+/**
+ * Campos de "surface" (textura + projeção + reflector) para primitivas e
+ * malhas estáticas. Todos são opcionais: quando vazios, o material cai no
+ * `meshStandardMaterial` simples usado antes da fase de level-integration.
+ */
+function SurfaceFields({
+    props,
+    onPatch,
+}: {
+    props: InstanceProps
+    onPatch: (p: InstanceProps) => void
+}) {
+    const textureUrl = (props.textureUrl as string | undefined) ?? ''
+    const triplanar = Boolean(props.triplanar)
+    const reflector = Boolean(props.reflector)
+
+    return (
+        <div className="space-y-3 p-2 rounded border border-sky-900/40 bg-sky-950/10">
+            <div className="text-xs font-semibold uppercase tracking-wider text-sky-200/80">
+                Surface
+            </div>
+
+            <Field label="Texture URL (public/)">
+                <input
+                    type="text"
+                    value={textureUrl}
+                    placeholder="/final-texture.png"
+                    onChange={(e) =>
+                        onPatch({ textureUrl: e.target.value || undefined })
+                    }
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs font-mono"
+                />
+            </Field>
+
+            <Field label={triplanar ? 'Tile (metros)' : 'Repeat'}>
+                <NumberInput
+                    step={0.25}
+                    min={0.01}
+                    value={props.textureScale as number | undefined}
+                    placeholder={triplanar ? '1' : '1'}
+                    onChange={(v) => onPatch({ textureScale: v })}
+                />
+            </Field>
+
+            <label className="flex items-center gap-2 text-xs text-neutral-300">
+                <input
+                    type="checkbox"
+                    checked={triplanar}
+                    onChange={(e) => onPatch({ triplanar: e.target.checked })}
+                />
+                Triplanar (UV world-space; não estica ao escalar)
+            </label>
+
+            <label className="flex items-center gap-2 text-xs text-neutral-300">
+                <input
+                    type="checkbox"
+                    checked={reflector}
+                    onChange={(e) => onPatch({ reflector: e.target.checked })}
+                />
+                Reflector (chão reflexivo)
+            </label>
+
+            {reflector && (
+                <>
+                    <Field label="Mirror (0..1)">
+                        <NumberInput
+                            step={0.05}
+                            min={0}
+                            value={props.reflectorMirror as number | undefined}
+                            placeholder="0"
+                            onChange={(v) => onPatch({ reflectorMirror: v })}
+                        />
+                    </Field>
+                    <Field label="Roughness (0..1)">
+                        <NumberInput
+                            step={0.05}
+                            min={0}
+                            value={props.reflectorRoughness as number | undefined}
+                            placeholder="1"
+                            onChange={(v) => onPatch({ reflectorRoughness: v })}
+                        />
+                    </Field>
+                </>
             )}
         </div>
     )

@@ -3,6 +3,7 @@ import { useEditorStore } from '../state/store'
 import { CATEGORY_DEFAULTS } from '../../level/colliderFactory'
 
 const CATEGORY_ORDER: Category[] = [
+    'player',
     'light',
     'static-bulk',
     'static-prop',
@@ -12,6 +13,7 @@ const CATEGORY_ORDER: Category[] = [
 ]
 
 const CATEGORY_LABEL: Record<Category, string> = {
+    player: 'Player',
     light: 'Lights',
     'static-bulk': 'Static (bulk)',
     'static-prop': 'Static (props)',
@@ -21,6 +23,7 @@ const CATEGORY_LABEL: Record<Category, string> = {
 }
 
 const CATEGORY_ICON: Record<Category, string> = {
+    player: '☻',
     light: '●',
     'static-bulk': '▣',
     'static-prop': '▢',

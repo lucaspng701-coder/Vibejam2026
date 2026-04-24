@@ -1,9 +1,8 @@
 import { Canvas } from './common/components/canvas'
 import { FpsMonitorCollector, FpsMonitorDisplay } from './common/components/fps-monitor'
 import { Crosshair } from './common/components/crosshair'
-import { Instructions } from './common/components/instructions'
 import { useLoadingAssets } from './common/hooks/use-loading-assets'
-import { Environment, MeshReflectorMaterial, PerspectiveCamera } from '@react-three/drei'
+import { Environment, PerspectiveCamera } from '@react-three/drei'
 import { EffectComposer, Vignette, ChromaticAberration, BrightnessContrast, ToneMapping } from '@react-three/postprocessing'
 import {
     BlendFunction,
@@ -13,10 +12,9 @@ import {
     RenderPass as PostRenderPass,
 } from 'postprocessing'
 import { useFrame, useThree } from '@react-three/fiber'
-import { CuboidCollider, Physics, RigidBody } from '@react-three/rapier'
+import { Physics } from '@react-three/rapier'
 import { useControls, folder } from 'leva'
-import { useTexture } from '@react-three/drei'
-import { useRef, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { EffectComposer as ThreeEffectComposer, HalftonePass, RenderPass } from 'three-stdlib'
 import { Player, PlayerControls } from './game/player'
@@ -24,70 +22,7 @@ import { Ball } from './game/ball'
 import { SphereTool } from './game/sphere-tool'
 import { LevelLoader } from './level/LevelLoader'
 import { LEVEL_PRESETS, levelJsonPath, type LevelPreset } from './level/level-presets'
-
-const Scene = () => {
-    const texture = useTexture('/final-texture.png')
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
-    
-    // Ground texture (50x50)
-    const groundTexture = texture.clone()
-    groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping
-    groundTexture.repeat.set(12, 12) // 12 repeats to match ground size
-    
-    // Side walls texture (2x4)
-    const sideWallTexture = texture.clone()
-    sideWallTexture.wrapS = sideWallTexture.wrapT = THREE.RepeatWrapping
-    sideWallTexture.repeat.set(12, 1) // 12 repeats horizontally to match wall length
-    
-    // Front/back walls texture (50x4)
-    const frontWallTexture = texture.clone()
-    frontWallTexture.wrapS = frontWallTexture.wrapT = THREE.RepeatWrapping
-    frontWallTexture.repeat.set(12, 1) // 12 repeats horizontally to match wall width
-
-    return (
-        <RigidBody type="fixed" position={[0, 0, 0]} colliders={false}>
-            {/* Ground collider */}
-            <CuboidCollider args={[25, 0.1, 25]} position={[0, -0.1, 0]} />
-            
-            {/* Wall colliders */}
-            <CuboidCollider position={[25, 2, 0]} args={[1, 2, 25]} />
-            <CuboidCollider position={[-25, 2, 0]} args={[1, 2, 25]} />
-            <CuboidCollider position={[0, 2, 25]} args={[25, 2, 1]} />
-            <CuboidCollider position={[0, 2, -25]} args={[25, 2, 1]} />
-            
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-                <planeGeometry args={[50, 50]} />
-                <MeshReflectorMaterial
-                    map={groundTexture}
-                    mirror={0}
-                    roughness={1}
-                    depthScale={0}
-                    minDepthThreshold={0.9}
-                    maxDepthThreshold={1}
-                    metalness={0}
-                />
-            </mesh>
-            
-            {/* Border walls */}
-            <mesh position={[25, 2, 0]}>
-                <boxGeometry args={[2, 4, 50]} />
-                <meshStandardMaterial map={sideWallTexture} side={THREE.DoubleSide} />
-            </mesh>
-            <mesh position={[-25, 2, 0]}>
-                <boxGeometry args={[2, 4, 50]} />
-                <meshStandardMaterial map={sideWallTexture} side={THREE.DoubleSide} />
-            </mesh>
-            <mesh position={[0, 2, 25]}>
-                <boxGeometry args={[50, 4, 2]} />
-                <meshStandardMaterial map={frontWallTexture} side={THREE.DoubleSide} />
-            </mesh>
-            <mesh position={[0, 2, -25]}>
-                <boxGeometry args={[50, 4, 2]} />
-                <meshStandardMaterial map={frontWallTexture} side={THREE.DoubleSide} />
-            </mesh>
-        </RigidBody>
-    )
-}
+import type { LevelFile, Vec3 } from './level/types'
 
 function HalftoneComposer({
     shape,
@@ -323,7 +258,7 @@ export function App() {
         'Level',
         {
             levelPreset: {
-                value: 'sample' as LevelPreset,
+                value: 'level1' as LevelPreset,
                 options: [...LEVEL_PRESETS],
                 label: 'level JSON',
             },
@@ -338,6 +273,31 @@ export function App() {
         },
         { collapsed: true },
     )
+
+    // Spawn do player: extraído do level JSON no load. Enquanto o level não
+    // chegou (primeiro frame / troca de preset), mantemos `null` e não
+    // renderizamos o <Player /> — assim evitamos o player cair no vazio se o
+    // level não tiver chão ainda.
+    const [playerSpawn, setPlayerSpawn] = useState<Vec3 | null>(null)
+    const [playerSpawnKey, setPlayerSpawnKey] = useState(0)
+    const handleLevelLoaded = useCallback((level: LevelFile) => {
+        const player = level.instances.find((i) => i.category === 'player')
+        if (player) {
+            setPlayerSpawn(player.position)
+        } else {
+            console.warn(
+                `[App] level "${level.name}" não tem instance de category "player"; usando spawn default [0, 2, 10].`,
+            )
+            setPlayerSpawn([0, 2, 10])
+        }
+        setPlayerSpawnKey((k) => k + 1)
+    }, [])
+
+    useEffect(() => {
+        // Quando o preset muda, limpa o spawn pra segurar o <Player /> até o
+        // novo level responder.
+        setPlayerSpawn(null)
+    }, [levelPreset])
 
     const {
         skyboxMode,
@@ -453,31 +413,33 @@ export function App() {
                     maxVelocityFriction={1}
                 >
                     <PlayerControls>
-                        <Player 
-                            position={[0, 7, 10]}
-                            walkSpeed={walkSpeed}
-                            runSpeed={runSpeed}
-                            jumpForce={jumpForce}
-                            onMove={(position) => {
-                                if (directionalLightRef.current) {
-                                    const light = directionalLightRef.current
-                                    light.position.x = position.x + directionalDistance
-                                    light.position.z = position.z + directionalDistance
-                                    light.target.position.copy(position)
-                                    light.target.updateMatrixWorld()
-                                }
-                            }}
-                        />
+                        {playerSpawn && (
+                            <Player
+                                key={playerSpawnKey}
+                                position={playerSpawn}
+                                walkSpeed={walkSpeed}
+                                runSpeed={runSpeed}
+                                jumpForce={jumpForce}
+                                onMove={(position) => {
+                                    if (directionalLightRef.current) {
+                                        const light = directionalLightRef.current
+                                        light.position.x = position.x + directionalDistance
+                                        light.position.z = position.z + directionalDistance
+                                        light.target.position.copy(position)
+                                        light.target.updateMatrixWorld()
+                                    }
+                                }}
+                            />
+                        )}
                     </PlayerControls>
                     {levelSrc && (
                         <LevelLoader
                             src={levelSrc}
                             breakableThresholdOverride={breakableThresholdOverride}
+                            onLevelLoaded={handleLevelLoaded}
                         />
                     )}
                     <Ball />
-
-                    <Scene />
                     <SphereTool />
                 </Physics>
 
