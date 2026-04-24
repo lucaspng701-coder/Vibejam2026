@@ -35,11 +35,15 @@ const _uAxis = new THREE.Vector3()
 const _vAxis = new THREE.Vector3()
 const _wUp = new THREE.Vector3(0, 1, 0)
 const _wAlt = new THREE.Vector3(1, 0, 0)
+/** Reuso: boca da arma = olho + offset no espaço local da câmera (igual `shootSphere`). */
+const _muzzleOffsetLocal = new THREE.Vector3()
 
 const TRAIL_TUBE_RADIAL = 6
 const TWO_PI = Math.PI * 2
 
 const TRAIL_OPACITY_BASE = 1
+/** Aumenta brilho do tubo pós-vertexColors (MeshBasic ainda passa por tone mapping; ver `toneMapped: false` no mat). */
+const TRAIL_COLOR_BOOST = 5
 
 /** Última fração da vida (0.35 = 35% final) em que o trail esmaece até 0. */
 function computeLifeOpacity(
@@ -59,12 +63,26 @@ function computeLifeOpacity(
 
 export const PROJECTILE_SPHERE_RADIUS = 0.3
 export const PROJECTILE_LIFETIME_MS = 200
+/** Máx. eventos de impacto com superfície por projétil (ex.: ricochete). */
+const MAX_IMPACTS_PER_BULLET = 12
 const SHOOT_FORCE = 250
 export const TRAIL_MAX_POINTS = 24
 
-/** Cor da cauda (mais amarelo) e da ponta (quase branco) — lineBasic + vertexColors */
-const TRAIL_COLOR_TAIL: [number, number, number] = [1, 0.98, 0.95]
+/** Cor da cauda / ponta (0–1) — ajuste para tom quente; sem shading (Basic + unlit, ver material). */
+const TRAIL_COLOR_TAIL: [number, number, number] = [1, 1, 1]
 const TRAIL_COLOR_HEAD: [number, number, number] = [1, 1, 1]
+
+// ═══ Muzzle flash (só visual, sem colisão) — mude `mode` / cores aqui ═══
+const MUZZLE_FLASH = {
+    /** 'solid' = um anel; 'gradient' = anel claro (core) + anel borda (edge) */
+    mode: 'gradient' as 'solid' | 'gradient',
+    colorSolid: 0xffd040,
+    colorCore: 0xffffff,
+    colorEdge: 0xff8800,
+    durationMs: 78,
+    /** escala do raio do anel (animação) */
+    scaleMax: 0.82,
+} as const
 
 /**
  * Espaço local da câmera (m). Mesmos x/y; **z** negativo = sentido da mira; z positivo = atrás (evitar).
@@ -74,7 +92,7 @@ const TRAIL_COLOR_HEAD: [number, number, number] = [1, 1, 1]
 const EMITTER_OFFSET_FROM_CAMERA = {
     x: 0.14,
     y: -0.3,
-    z: -1.15,
+    z: -1.6,
 }
 
 type SphereEntry = {
@@ -169,6 +187,7 @@ function BulletTrail({
             opacity: 0.95,
             depthWrite: false,
             side: THREE.DoubleSide,
+            toneMapped: false,
         })
         const m = new THREE.Mesh(g, mat)
         m.frustumCulled = false
@@ -243,9 +262,9 @@ function BulletTrail({
             const baseB = TRAIL_COLOR_TAIL[2] + (TRAIL_COLOR_HEAD[2] - TRAIL_COLOR_TAIL[2]) * along
             const tailBlend = along * along
             const fade = 1 - (1 - tailBlend) * tailFade
-            const r = baseR * fade
-            const g0 = baseG * fade
-            const b0 = baseB * fade
+            const r = Math.min(1, baseR * fade * TRAIL_COLOR_BOOST)
+            const g0 = Math.min(1, baseG * fade * TRAIL_COLOR_BOOST)
+            const b0 = Math.min(1, baseB * fade * TRAIL_COLOR_BOOST)
 
             for (let k = 0; k < rPoly; k++) {
                 const theta = (k / rPoly) * TWO_PI
@@ -269,7 +288,91 @@ function BulletTrail({
     return <primitive object={mesh} />
 }
 
-const MAX_IMPACTS_PER_BULLET = 2
+type MuzzleFlashItem = { id: string; t0: number }
+
+/**
+ * Pisca na boca da arma, sem colisor. Posição a cada frame = câmera + `EMITTER_OFFSET_FROM_CAMERA`
+ * (fica colado na “arma”, não no ponto fixo de onde a bala nasceu no mundo). Cores: `MUZZLE_FLASH`.
+ */
+function MuzzleFlashFx({ item, onDone }: { item: MuzzleFlashItem; onDone: () => void }) {
+    const camera = useThree((s) => s.camera)
+    const gRef = useRef<THREE.Group>(null)
+    const innerRef = useRef<THREE.Mesh>(null)
+    const outerRef = useRef<THREE.Mesh>(null)
+    const solidRef = useRef<THREE.Mesh>(null)
+    const done = useRef(false)
+    const M = MUZZLE_FLASH
+
+    const syncMuzzleToCamera = useCallback(() => {
+        const g = gRef.current
+        if (!g) return
+        _muzzleOffsetLocal.set(
+            EMITTER_OFFSET_FROM_CAMERA.x,
+            EMITTER_OFFSET_FROM_CAMERA.y,
+            EMITTER_OFFSET_FROM_CAMERA.z
+        )
+        _muzzleOffsetLocal.applyQuaternion(camera.quaternion)
+        g.position.copy(camera.position).add(_muzzleOffsetLocal)
+        g.quaternion.copy(camera.quaternion)
+    }, [camera])
+
+    useLayoutEffect(() => {
+        syncMuzzleToCamera()
+    }, [syncMuzzleToCamera, item.id])
+
+    useFrame(() => {
+        if (done.current) return
+        const u = (performance.now() - item.t0) / M.durationMs
+        if (u >= 1) {
+            done.current = true
+            onDone()
+            return
+        }
+        syncMuzzleToCamera()
+        const g = gRef.current
+        const pulse = 1 - (1 - u) * (1 - u)
+        const s = 0.12 + M.scaleMax * (0.35 + 0.65 * pulse)
+        const op = 0.92 * (1 - u) * (1 - u)
+        g?.scale.setScalar(s)
+        if (M.mode === 'gradient') {
+            if (innerRef.current) (innerRef.current.material as THREE.MeshBasicMaterial).opacity = op
+            if (outerRef.current) (outerRef.current.material as THREE.MeshBasicMaterial).opacity = op * 0.88
+        } else if (solidRef.current) {
+            (solidRef.current.material as THREE.MeshBasicMaterial).opacity = op
+        }
+    })
+
+    const matProps = {
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+        blending: THREE.AdditiveBlending,
+    } as const
+
+    if (M.mode === 'solid') {
+        return (
+            <group ref={gRef}>
+                <mesh ref={solidRef}>
+                    <ringGeometry args={[0.04, 0.38, 32]} />
+                    <meshBasicMaterial color={M.colorSolid} opacity={0.9} {...matProps} />
+                </mesh>
+            </group>
+        )
+    }
+    return (
+        <group ref={gRef}>
+            <mesh ref={innerRef}>
+                <ringGeometry args={[0.02, 0.18, 24]} />
+                <meshBasicMaterial color={M.colorCore} opacity={0.9} {...matProps} />
+            </mesh>
+            <mesh ref={outerRef}>
+                <ringGeometry args={[0.1, 0.42, 32]} />
+                <meshBasicMaterial color={M.colorEdge} opacity={0.75} {...matProps} />
+            </mesh>
+        </group>
+    )
+}
 
 const Projectile = ({
     entry,
@@ -389,7 +492,7 @@ export const SphereTool = () => {
         {
             showColliders: { value: false, label: 'Ver colisores (wireframe)' },
             trailWidth: { value: 0.15, min: 0.10, max: 5, step: 0.01, label: 'Espessura (m)' },
-            trailTaper: { value: 0.75, min: 0, max: 1, step: 0.05, label: 'Taper cauda (raio ↓ na cauda)' },
+            trailTaper: { value: 0.92, min: 0, max: 1, step: 0.05, label: 'Taper cauda (raio ↓ na cauda)' },
             trailTailFade: { value: 0.5, min: 0, max: 1, step: 0.05, label: 'Fade cor na cauda' },
             lifeEndFade: { value: 0.35, min: 0.05, max: 0.95, step: 0.05, label: 'Esmaecer fim (frac. vida final)' },
         },
@@ -398,6 +501,7 @@ export const SphereTool = () => {
 
     const camera = useThree((s) => s.camera)
     const [spheres, setSpheres] = useState<SphereEntry[]>([])
+    const [muzzle, setMuzzle] = useState<MuzzleFlashItem[]>([])
     const [impacts, setImpacts] = useState<SurfaceImpactItem[]>([])
 
     const removeProjectile = useCallback((projectileId: string) => {
@@ -466,6 +570,10 @@ export const SphereTool = () => {
                 spawnedAt: performance.now(),
             },
         ])
+        setMuzzle((prev) => [
+            ...prev,
+            { id: `muz_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, t0: performance.now() },
+        ])
     }
 
     const startShooting = () => {
@@ -510,6 +618,13 @@ export const SphereTool = () => {
 
     return (
         <group>
+            {muzzle.map((m) => (
+                <MuzzleFlashFx
+                    key={m.id}
+                    item={m}
+                    onDone={() => setMuzzle((prev) => prev.filter((x) => x.id !== m.id))}
+                />
+            ))}
             {spheres.map((entry) => (
                 <Projectile
                     key={entry.id}
