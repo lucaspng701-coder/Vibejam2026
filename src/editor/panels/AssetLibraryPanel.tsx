@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Category, Instance, LightKind } from '../../level/types'
-import { defaultInstanceFor, PLAYER_ASSET_ID, useEditorStore } from '../state/store'
+import { defaultInstanceFor, ENEMY_ASSET_ID, PLAYER_ASSET_ID, useEditorStore } from '../state/store'
 import { ASSET_CATALOG } from '../../level/asset-catalog'
 
 interface AssetEntry {
@@ -11,6 +11,7 @@ interface AssetEntry {
 
 const PRIMITIVES: AssetEntry[] = [
     { id: 'primitives/cube', label: 'Cube', defaultCategory: 'static-prop' },
+    { id: 'primitives/plane', label: 'Plane', defaultCategory: 'static-bulk' },
     { id: 'primitives/sphere', label: 'Sphere', defaultCategory: 'dynamic' },
     { id: 'primitives/cylinder', label: 'Cylinder', defaultCategory: 'static-prop' },
 ]
@@ -29,6 +30,7 @@ const CATEGORY_LABEL: Record<Category, string> = {
     'no-collision': 'No collision',
     light: 'Light',
     player: 'Player',
+    enemy: 'Enemy',
 }
 
 const CATEGORIES: Category[] = ['static-bulk', 'static-prop', 'dynamic', 'breakable', 'no-collision']
@@ -137,7 +139,15 @@ export function AssetLibraryPanel() {
                                 key={asset.id}
                                 label={asset.label}
                                 sub={asset.id}
-                                icon={asset.id.endsWith('sphere') ? '●' : asset.id.endsWith('cylinder') ? '▮' : '▣'}
+                                icon={
+                                    asset.id.endsWith('sphere')
+                                        ? '●'
+                                        : asset.id.endsWith('cylinder')
+                                        ? '▮'
+                                        : asset.id.endsWith('plane')
+                                        ? '▬'
+                                        : '▣'
+                                }
                                 iconColor="#8aa0b8"
                                 onAdd={() => addAsset(asset, defaultCat)}
                             />
@@ -156,20 +166,33 @@ export function AssetLibraryPanel() {
                         ))}
 
                     {tab === 'gameplay' && (
-                        <AssetCard
-                            label={hasPlayer ? 'Player (já adicionado)' : 'Player Spawn'}
-                            sub={hasPlayer ? 'click pra selecionar' : PLAYER_ASSET_ID}
-                            icon="☻"
-                            iconColor="#33cc66"
-                            onAdd={
-                                hasPlayer
-                                    ? selectPlayer
-                                    : () =>
-                                          addInstance({
-                                              ...defaultInstanceFor(PLAYER_ASSET_ID, 'player'),
-                                          })
-                            }
-                        />
+                        <>
+                            <AssetCard
+                                label={hasPlayer ? 'Player (já adicionado)' : 'Player Spawn'}
+                                sub={hasPlayer ? 'click pra selecionar' : PLAYER_ASSET_ID}
+                                icon="☻"
+                                iconColor="#33cc66"
+                                onAdd={
+                                    hasPlayer
+                                        ? selectPlayer
+                                        : () =>
+                                              addInstance({
+                                                  ...defaultInstanceFor(PLAYER_ASSET_ID, 'player'),
+                                              })
+                                }
+                            />
+                            <AssetCard
+                                label="Enemy"
+                                sub={ENEMY_ASSET_ID}
+                                icon="☠"
+                                iconColor="#b02222"
+                                onAdd={() =>
+                                    addInstance({
+                                        ...defaultInstanceFor(ENEMY_ASSET_ID, 'enemy'),
+                                    })
+                                }
+                            />
+                        </>
                     )}
                 </div>
             </div>

@@ -4,6 +4,7 @@ import { CATEGORY_DEFAULTS } from '../../level/colliderFactory'
 
 const CATEGORY_ORDER: Category[] = [
     'player',
+    'enemy',
     'light',
     'static-bulk',
     'static-prop',
@@ -14,6 +15,7 @@ const CATEGORY_ORDER: Category[] = [
 
 const CATEGORY_LABEL: Record<Category, string> = {
     player: 'Player',
+    enemy: 'Enemies',
     light: 'Lights',
     'static-bulk': 'Static (bulk)',
     'static-prop': 'Static (props)',
@@ -24,6 +26,7 @@ const CATEGORY_LABEL: Record<Category, string> = {
 
 const CATEGORY_ICON: Record<Category, string> = {
     player: '☻',
+    enemy: '☠',
     light: '●',
     'static-bulk': '▣',
     'static-prop': '▢',

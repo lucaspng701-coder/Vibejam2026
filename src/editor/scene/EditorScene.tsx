@@ -149,6 +149,8 @@ const EditorInstance = memo(function EditorInstance({ instance }: { instance: In
                 </>
             ) : instance.category === 'player' ? (
                 <PlayerPreview highlighted={isSelected} />
+            ) : instance.category === 'enemy' ? (
+                <EnemyPreview highlighted={isSelected} tintColor={tintColor} />
             ) : (
                 <AssetPreview
                     assetId={instance.assetId}
@@ -279,6 +281,22 @@ function AssetPreview({
         ? { ...(instanceProps ?? {}), color: tintColor }
         : instanceProps
     return <PrimitiveMesh kind={kind} color={color} props={mergedProps} highlighted={highlighted} />
+}
+
+/** Preview de inimigo: cápsula vermelha (mesma proporção do runtime). */
+function EnemyPreview({ highlighted, tintColor }: { highlighted: boolean; tintColor?: string }) {
+    const c = tintColor ?? '#b02222'
+    return (
+        <mesh castShadow userData={{ __selectionBox: true }}>
+            <capsuleGeometry args={[0.5, 1, 4, 12]} />
+            <meshStandardMaterial
+                color={c}
+                roughness={0.5}
+                emissive={highlighted ? '#662222' : '#000000'}
+                emissiveIntensity={highlighted ? 0.25 : 0}
+            />
+        </mesh>
+    )
 }
 
 /**

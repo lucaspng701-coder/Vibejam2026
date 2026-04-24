@@ -234,9 +234,23 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 }))
 
 export function defaultInstanceFor(assetId: string, category: Category): Omit<Instance, 'id'> {
-    // Player spawna um pouco acima do chão pra não ficar enterrado na altura
-    // padrão da cápsula do Player (1m de meia-altura).
-    const pos: Vec3 = category === 'player' ? [0, 1.5, 0] : [0, 1, 0]
+    // Player / inimigo spawnam um pouco acima do chão (cápsula ~2m de altura).
+    const pos: Vec3 = category === 'player' || category === 'enemy' ? [0, 1.5, 0] : [0, 1, 0]
+
+    // Planos nascem horizontais (normal +Y). A rotação vive na instância —
+    // não baked na geometria — porque o MeshReflectorMaterial deriva o plano
+    // de reflexão de `mesh.matrixWorld` assumindo normal local +Z; rotação
+    // baked resultaria em reflexo vertical/esticado.
+    if (assetId === 'primitives/plane') {
+        return {
+            assetId,
+            category,
+            position: [0, 0, 0],
+            rotation: [-Math.PI / 2, 0, 0],
+            scale: [4, 4, 1],
+        }
+    }
+
     return {
         assetId,
         category,
@@ -252,3 +266,5 @@ export function defaultInstanceFor(assetId: string, category: Category): Omit<In
  * como preview visual.
  */
 export const PLAYER_ASSET_ID = 'player/spawn'
+
+export const ENEMY_ASSET_ID = 'enemy/spawn'

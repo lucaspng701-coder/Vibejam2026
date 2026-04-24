@@ -8,6 +8,7 @@ const CATEGORY_OPTIONS: Category[] = [
     'breakable',
     'no-collision',
     'light',
+    'enemy',
 ]
 
 const CATEGORY_SELECT_LABEL: Record<Category, string> = {
@@ -18,6 +19,7 @@ const CATEGORY_SELECT_LABEL: Record<Category, string> = {
     'no-collision': 'No collision (visual)',
     light: 'Light',
     player: 'Player (spawn)',
+    enemy: 'Enemy',
 }
 
 const LIGHT_KIND_OPTIONS: LightKind[] = ['point', 'spot', 'directional']
@@ -136,7 +138,9 @@ export function InspectorPanel() {
 
                     {(instance.category === 'static-bulk' ||
                         instance.category === 'static-prop' ||
-                        instance.category === 'no-collision') && (
+                        instance.category === 'no-collision' ||
+                        instance.category === 'dynamic' ||
+                        instance.category === 'breakable') && (
                         <SurfaceFields
                             props={instance.props ?? {}}
                             onPatch={(p) => updateProps(selectedId, p)}
@@ -151,6 +155,18 @@ export function InspectorPanel() {
                                 value={instance.props?.mass}
                                 placeholder="default"
                                 onChange={(v) => updateProps(selectedId, { mass: v })}
+                            />
+                        </Field>
+                    )}
+
+                    {instance.category === 'enemy' && (
+                        <Field label="Max HP">
+                            <NumberInput
+                                step={10}
+                                min={1}
+                                value={instance.props?.maxHp}
+                                placeholder="100"
+                                onChange={(v) => updateProps(selectedId, { maxHp: v })}
                             />
                         </Field>
                     )}

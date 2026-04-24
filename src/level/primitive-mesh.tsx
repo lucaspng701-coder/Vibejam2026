@@ -3,13 +3,34 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import type { InstanceProps } from './types'
 
-export type PrimitiveKind = 'cube' | 'sphere' | 'cylinder'
+export type PrimitiveKind = 'cube' | 'sphere' | 'cylinder' | 'plane'
 
 export function primitiveKindFromAssetId(assetId: string): PrimitiveKind | null {
     if (!assetId.startsWith('primitives/')) return null
     const rest = assetId.slice('primitives/'.length)
-    if (rest === 'cube' || rest === 'sphere' || rest === 'cylinder') return rest
+    if (rest === 'cube' || rest === 'sphere' || rest === 'cylinder' || rest === 'plane') {
+        return rest
+    }
     return null
+}
+
+/**
+ * Geometria compartilhada de plano (1x1, normal local +Z).
+ *
+ * IMPORTANTE: NÃO pré-rotacionamos a geometria. O `MeshReflectorMaterial` da
+ * drei deriva o plano de reflexão a partir de `mesh.matrixWorld` assumindo
+ * que a normal local é +Z; se a gente rotacionar no buffer, o reflector vê
+ * mesh.rotation = 0 e acha que o "espelho" é vertical, produzindo aquele
+ * reflexo "esticado" que parece sombra.
+ *
+ * Para um plano horizontal, a instância deve ter `rotation = [-π/2, 0, 0]`
+ * (é o default do `AssetLibraryPanel` e do `defaultInstanceFor`).
+ */
+let planeGeometryCached: THREE.BufferGeometry | null = null
+function getPlaneGeometry(): THREE.BufferGeometry {
+    if (planeGeometryCached) return planeGeometryCached
+    planeGeometryCached = new THREE.PlaneGeometry(1, 1)
+    return planeGeometryCached
 }
 
 interface PrimitiveMeshProps {
@@ -57,6 +78,7 @@ export function PrimitiveMesh({ kind, color, props, highlighted }: PrimitiveMesh
 function PrimitiveGeometry({ kind }: { kind: PrimitiveKind }) {
     if (kind === 'sphere') return <sphereGeometry args={[0.5, 24, 16]} />
     if (kind === 'cylinder') return <cylinderGeometry args={[0.5, 0.5, 1, 24]} />
+    if (kind === 'plane') return <primitive object={getPlaneGeometry()} attach="geometry" />
     return <boxGeometry args={[1, 1, 1]} />
 }
 

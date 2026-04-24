@@ -1,11 +1,12 @@
 import Rapier from '@dimforge/rapier3d-compat'
 import { KeyboardControls, PerspectiveCamera, PointerLockControls, useKeyboardControls, useGLTF, useAnimations } from '@react-three/drei'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useFrame, useThree, createPortal } from '@react-three/fiber'
 import { CapsuleCollider, RigidBody, RigidBodyProps, useBeforePhysicsStep, useRapier } from '@react-three/rapier'
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGamepad } from '../common/hooks/use-gamepad'
 import { useControls } from 'leva'
 import * as THREE from 'three'
+import { playerCollision } from './physics-collision-filters'
 import { Component, Entity, EntityType } from './ecs'
 
 const _direction = new THREE.Vector3()
@@ -64,6 +65,11 @@ export const Player = ({ onMove, walkSpeed = 0.1, runSpeed = 0.15, jumpForce = 0
     const rapier = useRapier()
     const camera = useThree((state) => state.camera)
     const clock = useThree((state) => state.clock)
+
+    // Arma: `createPortal` (R3F) anexa o modelo na câmera. O `camera.add`
+    // imperativo quebrava com re-renders da cena (muitos projéteis, etc.),
+    // fazendo a arma sumir — o reconcilier gerencia a hierarquia de forma
+    // estável.
 
     const characterController = useRef<Rapier.KinematicCharacterController>(null!)
 
@@ -272,6 +278,17 @@ export const Player = ({ onMove, walkSpeed = 0.1, runSpeed = 0.15, jumpForce = 0
 
     return (
         <>
+            {createPortal(
+                <group>
+                    <primitive
+                        object={gltf.scene}
+                        position={[x, y, z]}
+                        rotation={[0, Math.PI, 0]}
+                        scale={0.7}
+                    />
+                </group>,
+                camera,
+            )}
             <Entity isPlayer ref={playerRef}>
                 <Component name="rigidBody">
                     <RigidBody
@@ -282,17 +299,14 @@ export const Player = ({ onMove, walkSpeed = 0.1, runSpeed = 0.15, jumpForce = 0
                         enabledRotations={[false, false, false]}
                     >
                         <object3D name="player" />
-                        <CapsuleCollider args={[1, 0.5]} />
+                        <CapsuleCollider
+                            args={[1, 0.5]}
+                            collisionGroups={playerCollision()}
+                            solverGroups={playerCollision()}
+                        />
                     </RigidBody>
                 </Component>
             </Entity>
-            <primitive 
-                object={gltf.scene} 
-                position={[x, y, z]}
-                rotation={[0, Math.PI, 0]}
-                scale={0.7}
-                parent={camera}
-            />
         </>
     )
 }

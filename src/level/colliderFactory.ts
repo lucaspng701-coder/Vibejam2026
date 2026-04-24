@@ -59,6 +59,14 @@ export const CATEGORY_DEFAULTS: Record<Category, CategoryDefaults> = {
         defaultMass: 0,
         uniformScaleOnly: true,
     },
+    enemy: {
+        // Runtime: `<Enemy />` com collider próprio; não usa estes defaults
+        // de massa no LevelLoader, só cor/escala uniforme no editor.
+        bodyType: 'fixed',
+        debugColor: '#b02222',
+        defaultMass: 0,
+        uniformScaleOnly: true,
+    },
 }
 
 export function bodyTypeFor(category: Category): BodyType {

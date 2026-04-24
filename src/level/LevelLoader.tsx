@@ -1,7 +1,9 @@
 import { useGLTF } from '@react-three/drei'
-import { ConvexHullCollider, RapierRigidBody, RigidBody } from '@react-three/rapier'
+import { ConvexHullCollider, CuboidCollider, RapierRigidBody, RigidBody } from '@react-three/rapier'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { worldCollision } from '../game/physics-collision-filters'
+import { Enemy } from '../game/enemy'
 import { getAssetMeta, resolveAssetUrl, resolveFracturedAssetId } from './asset-catalog'
 import { CATEGORY_DEFAULTS } from './colliderFactory'
 import { PrimitiveMesh, primitiveKindFromAssetId } from './primitive-mesh'
@@ -136,6 +138,19 @@ function LevelInstance({
         return null
     }
 
+    if (category === 'enemy') {
+        return (
+            <Enemy
+                id={instance.id}
+                position={position}
+                rotation={rotation}
+                scale={scale}
+                maxHp={props?.maxHp as number | undefined}
+                color={tintColor}
+            />
+        )
+    }
+
     if (category === 'no-collision') {
         return (
             <group position={position} rotation={rotation}>
@@ -161,16 +176,46 @@ function LevelInstance({
         )
     }
 
+    // Planos precisam de collider manual: `colliders="cuboid"` inferiria
+    // espessura 0 a partir da bounding box do `planeGeometry` (0 em Z local)
+    // e o Rapier não aceita cuboid degenerado.
+    //
+    // A geometria do plano NÃO é pré-rotacionada (necessário pro reflector),
+    // então a rotação pra deixar horizontal vive na instância — tipicamente
+    // `rotation = [-π/2, 0, 0]`, o que mapeia:
+    //   local +X → world +X      (largura)
+    //   local +Y → world -Z      (profundidade, simétrica no cuboid)
+    //   local +Z → world +Y      (normal / espessura)
+    //
+    // Logo, com scale da instância = [sx, sy, _], o collider fino no frame
+    // da RigidBody tem args = [sx/2, sy/2, thickness/2] e offset -Z local
+    // pra ficar logo abaixo da superfície visível.
+    const isPlane = assetId === 'primitives/plane'
+    const planeThickness = 0.05
+    const planeHalfX = Math.max(scale[0], 0.01) / 2
+    const planeHalfY = Math.max(scale[1], 0.01) / 2
+
     return (
         <RigidBody
             type={defaults.bodyType}
             position={position}
             rotation={rotation}
-            colliders="cuboid"
+            colliders={isPlane ? false : 'cuboid'}
             mass={mass}
             friction={0.5}
             restitution={0}
+            {...(isPlane
+                ? {}
+                : { collisionGroups: worldCollision(), solverGroups: worldCollision() })}
         >
+            {isPlane && (
+                <CuboidCollider
+                    args={[planeHalfX, planeHalfY, planeThickness / 2]}
+                    position={[0, 0, -planeThickness / 2]}
+                    collisionGroups={worldCollision()}
+                    solverGroups={worldCollision()}
+                />
+            )}
             <group scale={scale}>
                 <AssetMesh
                     assetId={assetId}
@@ -362,6 +407,8 @@ function BreakableInstance({
                     mass={baseMass}
                     friction={0.5}
                     restitution={0}
+                    collisionGroups={worldCollision()}
+                    solverGroups={worldCollision()}
                     onCollisionEnter={
                         indestructible
                             ? undefined
@@ -545,7 +592,11 @@ function DebrisPiece({
             position={position}
             rotation={rotation}
         >
-            <ConvexHullCollider args={[hullPoints]} />
+            <ConvexHullCollider
+                args={[hullPoints]}
+                collisionGroups={worldCollision()}
+                solverGroups={worldCollision()}
+            />
             <primitive object={mesh} />
         </RigidBody>
     )

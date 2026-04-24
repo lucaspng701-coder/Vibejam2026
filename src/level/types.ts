@@ -15,6 +15,12 @@ export type Category =
      * visual (não é renderizado no runtime do jogo).
      */
     | 'player'
+    /**
+     * Inimigo (cápsula vermelha no jogo). Instâncias múltiplas. Dano só de
+     * projéteis do SphereTool, identificados por handle — sem alterar a física
+     * das bolas.
+     */
+    | 'enemy'
 
 export type LightKind = 'point' | 'spot' | 'directional'
 
@@ -77,6 +83,9 @@ export interface InstanceProps {
     reflectorMirror?: number
     /** Rugosidade do reflector (0 = nítido, 1 = borrado). Default 1. */
     reflectorRoughness?: number
+
+    /** Pontos de vida (apenas category `enemy`). Default 100. */
+    maxHp?: number
 
     /** Permite extensão futura sem quebrar o schema. */
     [key: string]: unknown

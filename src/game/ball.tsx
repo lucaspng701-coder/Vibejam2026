@@ -1,4 +1,5 @@
 import { RigidBody } from '@react-three/rapier'
+import { worldCollision } from './physics-collision-filters'
 import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 
@@ -16,6 +17,8 @@ export const Ball = () => {
             linearDamping={0.05}
             angularDamping={0.05}
             mass={0.5}
+            collisionGroups={worldCollision()}
+            solverGroups={worldCollision()}
         >
             <mesh castShadow receiveShadow>
                 <sphereGeometry args={[2, 32, 32]} />
