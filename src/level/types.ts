@@ -1,5 +1,12 @@
 export type Vec3 = [number, number, number]
 
+export interface ColliderBox {
+    /** Tamanho do cuboid em metros, no espaco local do objeto/asset. */
+    size: Vec3
+    /** Offset local do centro do cuboid. */
+    offset?: Vec3
+}
+
 export type Category =
     | 'static-bulk'
     | 'static-prop'
@@ -21,8 +28,53 @@ export type Category =
      * das bolas.
      */
     | 'enemy'
+    | 'enemy-trigger'
+    | 'decal'
 
 export type LightKind = 'point' | 'spot' | 'directional'
+
+export type EnvironmentPreset =
+    | 'apartment'
+    | 'city'
+    | 'dawn'
+    | 'forest'
+    | 'lobby'
+    | 'night'
+    | 'park'
+    | 'studio'
+    | 'sunset'
+    | 'warehouse'
+
+export interface LevelEnvironment {
+    /** none = no HDR/environment map; preset = drei preset; file = public URL/path. */
+    mode?: 'none' | 'preset' | 'file'
+    preset?: EnvironmentPreset
+    /** Public file URL, e.g. /hdrs/studio.hdr or /env/office.exr. */
+    file?: string
+    /** Use the HDR as visible background. If false, backgroundColor is used. */
+    background?: boolean
+    backgroundColor?: string
+    /** Use the HDR as image-based lighting for PBR materials. */
+    ibl?: boolean
+    blur?: number
+    intensity?: number
+    resolution?: number
+}
+
+export interface LevelLighting {
+    ambientIntensity?: number
+    directionalIntensity?: number
+    directionalHeight?: number
+    directionalDistance?: number
+    shadows?: boolean
+}
+
+export interface LevelEdgeOutline {
+    enabled?: boolean
+    color?: string
+    threshold?: number
+    lineWidth?: number
+}
 
 export interface InstanceProps {
     /** kg; usado em dynamic/breakable. Ignorado em no-collision/light/static. */
@@ -56,6 +108,13 @@ export interface InstanceProps {
     penumbra?: number
     /** Se a luz projeta sombras. */
     castShadow?: boolean
+    /** Resolucao do shadow map desta luz. Valores comuns: 512, 1024, 2048, 4096. */
+    shadowMapSize?: number
+    /** Ajuste fino contra acne/peter-panning de sombra. */
+    shadowBias?: number
+    shadowNormalBias?: number
+    /** Blur do shadow map quando suportado pelo tipo de sombra. */
+    shadowRadius?: number
 
     // ---- Material / surface (static-bulk, static-prop, no-collision) ----
     /**
@@ -63,6 +122,12 @@ export interface InstanceProps {
      * material fica sólido (cor via `color` ou fallback da categoria).
      */
     textureUrl?: string
+    /** Material nativo do Three para primitivas: standard, unlit/basic ou toon. */
+    material?: 'standard' | 'unlit' | 'toon'
+    roughness?: number
+    metalness?: number
+    emissive?: string
+    emissiveIntensity?: number
     /**
      * Quando `triplanar` é true, é o tamanho do tile em metros (world-space).
      * Quando é false, age como `repeat` em UVs nativas do mesh (ambos eixos).
@@ -83,9 +148,51 @@ export interface InstanceProps {
     reflectorMirror?: number
     /** Rugosidade do reflector (0 = nítido, 1 = borrado). Default 1. */
     reflectorRoughness?: number
+    /** Opacidade visual do objeto, 0..1. */
+    opacity?: number
+    /** Editor-only: oculta na viewport do editor, mas continua no level/outliner/runtime. */
+    editorHidden?: boolean
+    /** Se este objeto projeta sombra. Default true para props/renderables. */
+    receiveShadow?: boolean
+
+    /** Colliders manuais por instancia. Se ausente, pode cair no meta do asset. */
+    colliderBoxes?: ColliderBox[]
+    /**
+     * Collider cuboid manual legado em metros, no espaco local do objeto.
+     * Se ausente, o Rapier continua inferindo o collider automaticamente.
+     */
+    colliderSize?: Vec3
+    /** Offset local do collider manual, em metros. */
+    colliderOffset?: Vec3
 
     /** Pontos de vida (apenas category `enemy`). Default 100. */
     maxHp?: number
+    /** Enemy sight range in meters. Default 12. */
+    visionRange?: number
+    /** Enemy sight cone angle in degrees. Default 70. */
+    visionAngleDeg?: number
+    /** Enemy chase speed in meters/second. Default 2.2. */
+    moveSpeed?: number
+    /** Shows the runtime enemy vision cone. Default true. */
+    showVisionCone?: boolean
+    /** Trigger de inimigos dispara uma vez e fica travado. Default true. */
+    triggerOnce?: boolean
+    /** Mostra o cubo do trigger tambem no runtime. Default false. */
+    showTriggerVolume?: boolean
+
+    // ---- Decal / sprite plane ----
+    /** Coordenadas normalizadas do atlas/spritesheet, origem no topo-esquerdo. */
+    uvX?: number
+    uvY?: number
+    uvW?: number
+    uvH?: number
+    /** Grid opcional para animacao por spritesheet. */
+    sheetColumns?: number
+    sheetRows?: number
+    frameStart?: number
+    frameCount?: number
+    frameFps?: number
+    frameLoop?: boolean
 
     /** Permite extensão futura sem quebrar o schema. */
     [key: string]: unknown
@@ -111,5 +218,14 @@ export interface Instance {
 export interface LevelFile {
     version: 1
     name: string
+    environment?: LevelEnvironment
+    lighting?: LevelLighting
+    edgeOutline?: LevelEdgeOutline
     instances: Instance[]
+    /** Editor-only grouping. Runtime may ignore this safely. */
+    groups?: Array<{
+        id: string
+        name: string
+        children: string[]
+    }>
 }

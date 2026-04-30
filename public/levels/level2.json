@@ -1,14 +1,132 @@
 {
   "version": 1,
-  "name": "untitled",
+  "name": "level2",
+  "environment": {
+    "mode": "none",
+    "preset": "city",
+    "file": "",
+    "background": true,
+    "backgroundColor": "#1a1d22",
+    "ibl": true,
+    "blur": 0.8,
+    "intensity": 1,
+    "resolution": 256
+  },
+  "lighting": {
+    "ambientIntensity": 5,
+    "directionalIntensity": 25,
+    "directionalHeight": 80,
+    "directionalDistance": 203,
+    "shadows": false
+  },
+  "edgeOutline": {
+    "enabled": true,
+    "color": "#111111",
+    "threshold": 20,
+    "lineWidth": 4
+  },
   "instances": [
     {
-      "assetId": "breakables/crate",
-      "category": "breakable",
+      "id": "player_spawn",
+      "assetId": "player/spawn",
+      "category": "player",
       "position": [
-        -4.8033223532239635,
-        1.6504908038367283,
-        0.6320691105587635
+        -11.871658141786995,
+        3.3327468671955565,
+        18.715980973752984
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "enemy_1",
+      "assetId": "enemy/spawn",
+      "category": "enemy",
+      "position": [
+        -8.079588664491107,
+        1.5,
+        6.059070539863752
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "props": {
+        "maxHp": 100
+      }
+    },
+    {
+      "id": "inst_lbey1y3a_moc75yv9",
+      "assetId": "primitives/plane",
+      "category": "static-prop",
+      "position": [
+        0,
+        -0.21305095304657318,
+        0
+      ],
+      "rotation": [
+        -1.5707963267948966,
+        0,
+        0
+      ],
+      "scale": [
+        4,
+        4,
+        1
+      ],
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_3v1e1su1_moc764dp",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        -4.529735971667293,
+        3.861365740221271,
+        14.687494388524135
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        40,
+        7.91,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "textureScale": 12,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_sctkx8uk_moc76ru5",
+      "assetId": "primitives/cube",
+      "category": "dynamic",
+      "position": [
+        0.8757185666340304,
+        1,
+        -1.0810192059999277
       ],
       "rotation": [
         0,
@@ -17,18 +135,49 @@
       ],
       "scale": [
         1,
-        1.21,
-        0.91
+        1,
+        1
       ],
-      "id": "inst_43cdob3l_moarzapi"
+      "props": {
+        "triplanar": false,
+        "color": "#21635D",
+        "textureUrl": "/final-texture.png",
+        "material": "standard"
+      }
     },
     {
-      "assetId": "breakables/crate",
-      "category": "breakable",
+      "id": "cel_test_red_sphere",
+      "assetId": "primitives/sphere",
+      "category": "dynamic",
       "position": [
-        -3.8033223532239635,
-        4.640066250361545,
-        -10.388391244795491
+        12.030980823791737,
+        2.5,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "props": {
+        "color": "#21635D",
+        "mass": 2,
+        "emissive": "#000000",
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "enemy/spawn",
+      "category": "enemy",
+      "position": [
+        0,
+        1.5,
+        -13.601291608778677
       ],
       "rotation": [
         0,
@@ -37,18 +186,114 @@
       ],
       "scale": [
         1,
-        3.91,
-        1.71
+        1,
+        1
       ],
-      "id": "inst_7l884lyk_moarzo66"
+      "id": "inst_qh975llo_mod9p408"
     },
     {
       "assetId": "breakables/crate",
       "category": "breakable",
       "position": [
-        -4.634388300128307,
-        4.213493400730959,
-        10.801114702270427
+        -3.831928833496794,
+        1,
+        1.6663715416540033
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "id": "inst_9qb1p0dp_mod9r6vs",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -0.15395725868092303,
+        1,
+        3.6663715416540033
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "id": "inst_ptdk0fgv_mod9sors",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -1.647239793915741,
+        1,
+        6.666371541654003
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "id": "inst_c93c5f9y_mod9sry0",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -5.423419079540922,
+        1,
+        7.666371541654003
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "id": "inst_nff82e87_mod9ssmg",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        8.238729151380019,
+        1.0203263119464445,
+        5.840729324807244
       ],
       "rotation": [
         0,
@@ -57,90 +302,916 @@
       ],
       "scale": [
         1,
-        3.91,
-        1.71
+        1,
+        1
       ],
-      "id": "inst_41fq8rp2_moarzqim"
+      "id": "inst_aedlv4a9_mod9syc8",
+      "props": {
+        "emissive": "#707070",
+        "color": "#21635D",
+        "textureUrl": "/texture1.png",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_l9bndy0g_moeq9xdd",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        24.397607342401063,
+        3.6659721769710307,
+        -34.11843427461884
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        40,
+        7.91,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "textureScale": 12,
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_wq3kq5eh_moeqavc4",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        -24.188097658077393,
+        3.861365740221271,
+        17.047331550296597
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        200,
+        7.91,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "textureUrl": "/parede.png",
+        "textureScale": 12,
+        "color": "#21635D",
+        "material": "standard"
+      }
     },
     {
       "assetId": "breakables/crate",
       "category": "breakable",
       "position": [
-        -5.0033,
-        3.674155742682058,
-        1.6320691105587635
+        -0.24594104887931678,
+        1.0203263119464445,
+        -8.374373954449489
       ],
       "rotation": [
-        -0.3,
+        0,
         0,
         0
       ],
       "scale": [
-        0.2,
-        0.2,
-        0.2
+        1,
+        1,
+        1
       ],
-      "id": "inst_dzno771u_moas83k7"
+      "id": "inst_q8ko0d3s_moeqcb5z",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_ilsrz73h_moeqfu88",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        -0.07876532239654299,
+        3.861365740221271,
+        22.415853585234228
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        50,
+        7.91,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "textureScale": 12,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_e7bh8x8b_moeqgn09",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        4.292437148433078,
+        3.861365740221271,
+        -18.342518793882704
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        40,
+        7.91,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "textureScale": 12,
+        "color": "#21635D",
+        "material": "standard"
+      }
     },
     {
       "assetId": "breakables/crate",
       "category": "breakable",
       "position": [
-        -4.0033,
-        3.674155742682058,
-        -0.7106064891677999
+        8.592396872805928,
+        2.4099228317145465,
+        -9.305825118206139
       ],
       "rotation": [
-        -0.3,
+        0,
         0,
         0
       ],
       "scale": [
-        0.2,
-        0.2,
-        0.2
+        0.21,
+        0.41,
+        0.21
       ],
-      "id": "inst_ilrlkuld_moasbp2y"
+      "id": "inst_8p0t8jzn_moetaic3",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
     },
     {
       "assetId": "breakables/crate",
       "category": "breakable",
       "position": [
-        -1.4791683963696005,
-        2.0164102471922742,
-        0.2893935108322001
+        8.692347985791137,
+        1.0203263119464445,
+        -7.913681233665702
       ],
       "rotation": [
-        -0.3,
+        0,
         0,
         0
       ],
       "scale": [
-        0.2,
-        0.2,
-        0.2
+        1,
+        1,
+        1
       ],
-      "id": "inst_ndk191cz_moasbxia"
+      "id": "inst_4lxt2daa_moetaic3",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
     },
     {
       "assetId": "breakables/crate",
       "category": "breakable",
       "position": [
-        -0.24644545956214126,
-        3.674155742682058,
-        0.2893935108322001
+        4.127831026978139,
+        2.4099228317145465,
+        -9.68190129110902
       ],
       "rotation": [
-        -0.3,
+        0,
         0,
         0
       ],
       "scale": [
-        0.2,
-        0.2,
-        0.2
+        0.21,
+        0.41,
+        0.21
       ],
-      "id": "inst_pniokwnc_moasc6m2"
+      "id": "inst_1fz2nof9_moetaujo",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        4.152193882156679,
+        2.8095627050090908,
+        -7.477887048209995
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        0.61,
+        0.81,
+        0.31
+      ],
+      "id": "inst_byamztso_moetaujo",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        4.227782139963349,
+        1.0203263119464445,
+        -8.289757406568583
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_b9rjwt62_moetaujo",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -12.713545789424877,
+        2.409922831714547,
+        5.668456322869367
+      ],
+      "rotation": [
+        0,
+        -0.6146182353006823,
+        0
+      ],
+      "scale": [
+        0.21,
+        0.41,
+        0.21
+      ],
+      "id": "inst_l668r8ir_mofywxho",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -13.964578954188513,
+        2.809562705009091,
+        7.4831707225134805
+      ],
+      "rotation": [
+        0,
+        -0.6146182353006823,
+        0
+      ],
+      "scale": [
+        0.61,
+        0.81,
+        0.31
+      ],
+      "id": "inst_s86jld4q_mofywxho",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        -13.445407059973164,
+        1.020326311946444,
+        6.863465512072036
+      ],
+      "rotation": [
+        0,
+        -0.6146182353006823,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_15tcv8q6_mofywxho",
+      "props": {
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_3e8c6bsh_mogc46n3",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [
+        0.5542293088994636,
+        -0.05491794504542469,
+        18.220915278512276
+      ],
+      "rotation": [
+        1.5707963267948966,
+        0,
+        0
+      ],
+      "scale": [
+        50,
+        8,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_v2e9t8f7_mogc77td",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        24.3976,
+        3.861365740221271,
+        32.44285156014701
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        40,
+        7.91,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "textureScale": 12,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_6x8vnh9m_mogc7nv4",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        24.48525606672147,
+        7.470083148678219,
+        -1.1802409766905289
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        27.899352992285056,
+        1,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_ekvsr93e_mogcg4fp",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [
+        0.5542,
+        -0.05491794504542469,
+        -5.833327304087433
+      ],
+      "rotation": [
+        1.56920191393408,
+        -0.0019196647095007409,
+        0.0016086681045910686
+      ],
+      "scale": [
+        50,
+        40,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "roughness": 0,
+        "metalness": 0
+      }
+    },
+    {
+      "id": "inst_8ovszko2_mogcoxq3",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [
+        -0.1053687447070375,
+        7.667859590493038,
+        -45.72751947864068
+      ],
+      "rotation": [
+        1.5707963267948966,
+        0,
+        0
+      ],
+      "scale": [
+        50,
+        150,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_ckv1t852_mohfqr18",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        24.046802897170206,
+        0.4934378078915289,
+        -0.18024097669052885
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        27.899352992285056,
+        1,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_h3bd4hu8_mohfqzh8",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        24.282508181435478,
+        3.7003132194479864,
+        -2.2436131278029894
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        0.9108026956353825,
+        7.8683576137820115,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_85aqlq6p_mohfrfh9",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        24.179435867652227,
+        3.7003132194479864,
+        3.507254761114096
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        0.9108026956353825,
+        7.8683576137820115,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_bepgom8k_mohfrlgf",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        24.14542171153109,
+        3.7003132194479864,
+        8.625498543277969
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        0.9108026956353825,
+        7.8683576137820115,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_y1zj1wzk_mohfrqit",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        24.162709734877872,
+        3.7003132194479864,
+        -8.155774775327739
+      ],
+      "rotation": [
+        0,
+        1.5707963267948966,
+        0
+      ],
+      "scale": [
+        0.9108026956353825,
+        7.8683576137820115,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_01besyk2_mohgl499",
+      "assetId": "primitives/sphere",
+      "category": "dynamic",
+      "position": [
+        18.120600368256444,
+        1.4188878173326298,
+        -0.38438024062644516
+      ],
+      "rotation": [
+        -0.023671014036723677,
+        -0.004118445396758064,
+        -0.0009325860748470015
+      ],
+      "scale": [
+        2,
+        2,
+        2
+      ],
+      "props": {
+        "color": "#21635D",
+        "mass": 2,
+        "emissive": "#000000",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_t8qnd3eg_mohi5iun",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        -3.529735971667293,
+        3.861365740221271,
+        -2.6825356762181514
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1.6465269316954365,
+        7.91,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "textureScale": 12,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_48css18q_mohi5q9r",
+      "assetId": "primitives/cube",
+      "category": "static-prop",
+      "position": [
+        -10.94041579115169,
+        3.861365740221271,
+        2.277005842788812
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        3.766045118917129,
+        7.91,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "textureScale": 12,
+        "color": "#21635D",
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_o1p3g7j9_mohq6zef",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [
+        1.5542,
+        14.382221867349353,
+        -52.655850477063424
+      ],
+      "rotation": [
+        2.2155610432122206,
+        0.15072457390344363,
+        0.5265733799948463
+      ],
+      "scale": [
+        31.440439073266162,
+        18.44783287512141,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "roughness": 1,
+        "metalness": 0.5,
+        "material": "standard"
+      }
+    },
+    {
+      "id": "inst_f0x0bcwu_mohq75od",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [
+        44.35221303449735,
+        28.261535869136317,
+        -84.83323888532027
+      ],
+      "rotation": [
+        2.069933267181418,
+        0.31452501614020456,
+        0.6778383869939595
+      ],
+      "scale": [
+        50,
+        40,
+        1
+      ],
+      "props": {
+        "triplanar": true,
+        "color": "#21635D",
+        "roughness": 1,
+        "metalness": 0.5,
+        "material": "standard"
+      }
+    },
+    {
+      "assetId": "props/chair_v6",
+      "category": "dynamic",
+      "position": [
+        10.61032710800091,
+        1.5795118544674773,
+        -5.828306897593829
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_dm7xuoho_moi4ph5v",
+      "props": {
+        "color": "#c9c9c9",
+        "emissive": "#ffffff",
+        "emissiveIntensity": 1
+      }
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "dynamic",
+      "position": [
+        -2.752881373139507,
+        2.1767144527114737,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_09svzk4i_moi4rbnx"
+    },
+    {
+      "assetId": "props/chair_v7",
+      "category": "dynamic",
+      "position": [
+        9.746769157246387,
+        1.5597785355693716,
+        6.70676163324084
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_2er3jvh1_moi4uk92",
+      "props": {
+        "color": "#2d524f"
+      }
+    },
+    {
+      "assetId": "props/monitor",
+      "category": "dynamic",
+      "position": [
+        8.38580528940385,
+        2.584990837084756,
+        6.781830214006707
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_ecebahe1_moi574g6",
+      "props": {
+        "color": "#2d524f"
+      }
+    },
+    {
+      "assetId": "props/monitor",
+      "category": "dynamic",
+      "position": [
+        8.763552480288016,
+        2.584990837084756,
+        -6.274164161787585
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_xbcsxb6q_moi58xnz",
+      "props": {
+        "color": "#c9c9c9"
+      }
+    },
+    {
+      "assetId": "props/monitor_v2",
+      "category": "dynamic",
+      "position": [
+        3.7469280878761477,
+        2.901691512565128,
+        7.487377474511063
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_uoq3u82q_moi5dcc3"
+    },
+    {
+      "assetId": "breakables/crate",
+      "category": "breakable",
+      "position": [
+        3.721110562032055,
+        1.0203263119464445,
+        6.840729324807244
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "id": "inst_q7dcrqsf_moi5dqln",
+      "props": {
+        "emissive": "#707070",
+        "color": "#21635D",
+        "textureUrl": "/texture1.png",
+        "material": "standard"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "group_i72lhl_moetag1v",
+      "name": "Group 1",
+      "children": [
+        "inst_aedlv4a9_mod9syc8"
+      ]
+    },
+    {
+      "id": "group_nul3w6_moetaic3",
+      "name": "Group 1 copy",
+      "children": [
+        "inst_8p0t8jzn_moetaic3",
+        "inst_4lxt2daa_moetaic3"
+      ]
+    },
+    {
+      "id": "group_y39e5j_moetaujo",
+      "name": "Group 1 copy copy",
+      "children": [
+        "inst_1fz2nof9_moetaujo",
+        "inst_byamztso_moetaujo",
+        "inst_b9rjwt62_moetaujo"
+      ]
+    },
+    {
+      "id": "group_lek9wa_mofywxho",
+      "name": "Group 1 copy copy copy copy",
+      "children": [
+        "inst_l668r8ir_mofywxho",
+        "inst_s86jld4q_mofywxho",
+        "inst_15tcv8q6_mofywxho"
+      ]
     }
   ]
 }

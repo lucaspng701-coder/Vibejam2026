@@ -3,5 +3,6 @@
     "mass": 8,
     "fractureThreshold": 20,
     "fracturedAssetId": "breakables/crate_fractured",
-    "debrisMass": 0.5
+    "debrisMass": 0.5,
+    "debrisLifetimeMs": 15000
 }

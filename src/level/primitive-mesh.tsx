@@ -1,7 +1,8 @@
-import { MeshReflectorMaterial, useTexture } from '@react-three/drei'
-import { useMemo } from 'react'
+import { Edges, MeshReflectorMaterial } from '@react-three/drei'
+import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import type { InstanceProps } from './types'
+import { clampOpacity } from './tint'
 
 export type PrimitiveKind = 'cube' | 'sphere' | 'cylinder' | 'plane'
 
@@ -33,12 +34,59 @@ function getPlaneGeometry(): THREE.BufferGeometry {
     return planeGeometryCached
 }
 
+function useSafeTexture(url: string): THREE.Texture | null {
+    const [texture, setTexture] = useState<THREE.Texture | null>(null)
+
+    useEffect(() => {
+        let cancelled = false
+        setTexture(null)
+        const loader = new THREE.TextureLoader()
+        loader.load(
+            url,
+            (loaded) => {
+                if (cancelled) {
+                    loaded.dispose()
+                    return
+                }
+                setTexture(loaded)
+            },
+            undefined,
+            () => {
+                if (!cancelled) {
+                    console.warn(`[primitive-mesh] textura nao encontrada: ${url}`)
+                    setTexture(null)
+                }
+            },
+        )
+        return () => {
+            cancelled = true
+        }
+    }, [url])
+
+    return texture
+}
+
 interface PrimitiveMeshProps {
     kind: PrimitiveKind
     color: string
     props?: InstanceProps
+    instanceScale?: [number, number, number]
     /** Para highlight de seleção no editor. Ignorado em runtime do jogo. */
     highlighted?: boolean
+    edgeOutline?: EdgeOutlineSettings
+}
+
+export interface EdgeOutlineSettings {
+    enabled: boolean
+    color: string
+    threshold: number
+    lineWidth: number
+}
+
+interface PrimitiveOutlineMeshProps {
+    kind: PrimitiveKind
+    color: string
+    width: number
 }
 
 /**
@@ -49,27 +97,53 @@ interface PrimitiveMeshProps {
  *
  * Regras simples desta versão:
  *   - `reflector = true` substitui o material por `MeshReflectorMaterial`
- *     (pros chões reflexivos). Se também vier com `triplanar = true`, hoje
- *     apenas logamos um aviso e o reflector vence — misturar os dois exige
- *     injetar o triplanar via `onBeforeCompile` na versão interna do reflector
- *     e deixo pra uma PR futura.
+ *     (pros chões reflexivos). Se também vier com `triplanar = true`, a textura
+ *     usa projeção em world-space e o reflexo continua ativo.
  *   - `triplanar = true` requer `textureUrl` e usa `textureScale` como TILE em
  *     metros (world-space). A UV é recalculada no fragment shader a partir da
  *     world position, então escalar o cubo não estica — a textura se repete.
  *   - Sem `triplanar` mas com `textureUrl`: textura normal com `repeat` igual
  *     a `textureScale` (default 1). Escalar o objeto estica — é o trade-off.
  */
-export function PrimitiveMesh({ kind, color, props, highlighted }: PrimitiveMeshProps) {
+export function PrimitiveMesh({ kind, color, props, instanceScale, highlighted, edgeOutline }: PrimitiveMeshProps) {
     const tintColor = props?.color as string | undefined
     const renderColor = tintColor ?? color
+    const castShadow = props?.castShadow !== false
+    const receiveShadow = props?.receiveShadow !== false
 
     return (
-        <mesh castShadow receiveShadow>
+        <mesh castShadow={castShadow} receiveShadow={receiveShadow}>
             <PrimitiveGeometry kind={kind} />
             <PrimitiveMaterial
+                kind={kind}
                 renderColor={renderColor}
                 props={props}
+                instanceScale={instanceScale}
                 highlighted={highlighted}
+            />
+            {edgeOutline?.enabled && (
+                <Edges
+                    color={edgeOutline.color}
+                    threshold={edgeOutline.threshold}
+                    lineWidth={edgeOutline.lineWidth}
+                    toneMapped={false}
+                    renderOrder={10}
+                />
+            )}
+        </mesh>
+    )
+}
+
+export function PrimitiveOutlineMesh({ kind, color, width }: PrimitiveOutlineMeshProps) {
+    const shellScale = 1 + Math.max(0, width)
+    return (
+        <mesh scale={[shellScale, shellScale, shellScale]} renderOrder={-1}>
+            <PrimitiveGeometry kind={kind} />
+            <meshBasicMaterial
+                color={color}
+                side={THREE.BackSide}
+                toneMapped={false}
+                depthWrite={false}
             />
         </mesh>
     )
@@ -82,33 +156,86 @@ function PrimitiveGeometry({ kind }: { kind: PrimitiveKind }) {
     return <boxGeometry args={[1, 1, 1]} />
 }
 
+function planeRepeatFromScale(
+    scale: [number, number, number] | undefined,
+    tileMeters: number,
+): [number, number] {
+    const tile = Math.max(0.001, tileMeters)
+    return [
+        Math.max(0.001, Math.abs(scale?.[0] ?? 1) / tile),
+        Math.max(0.001, Math.abs(scale?.[1] ?? 1) / tile),
+    ]
+}
+
+function configureTexture(texture: THREE.Texture, repeat: number | [number, number]): THREE.Texture {
+    const t = texture.clone()
+    t.wrapS = t.wrapT = THREE.RepeatWrapping
+    if (Array.isArray(repeat)) t.repeat.set(repeat[0], repeat[1])
+    else t.repeat.set(repeat, repeat)
+    t.needsUpdate = true
+    return t
+}
+
 function PrimitiveMaterial({
+    kind,
     renderColor,
     props,
+    instanceScale,
     highlighted,
 }: {
+    kind: PrimitiveKind
     renderColor: string
     props?: InstanceProps
+    instanceScale?: [number, number, number]
     highlighted?: boolean
 }) {
     const textureUrl = props?.textureUrl
     const textureScale = props?.textureScale ?? 1
     const triplanar = Boolean(props?.triplanar)
     const reflector = Boolean(props?.reflector)
+    const materialType = props?.material ?? (props?.unlit === true ? 'unlit' : 'standard')
+    const opacity = clampOpacity(props?.opacity)
+    const repeat = kind === 'plane' ? planeRepeatFromScale(instanceScale, textureScale) : textureScale
+    const roughness = props?.roughness ?? 0.8
+    const metalness = props?.metalness ?? 0.05
+    const emissive = props?.emissive ?? (highlighted ? '#ffffff' : '#000000')
+    const emissiveIntensity = props?.emissiveIntensity ?? (highlighted ? 0.25 : 0)
+
+    if (materialType === 'unlit') {
+        return (
+            <BasicPrimitiveMaterial
+                textureUrl={textureUrl}
+                repeat={repeat}
+                color={renderColor}
+                opacity={opacity}
+            />
+        )
+    }
 
     if (reflector) {
-        if (triplanar) {
-            console.warn(
-                '[primitive-mesh] reflector + triplanar ainda não é suportado; usando reflector com UV normal.',
-            )
-        }
         return (
             <ReflectorMaterial
                 textureUrl={textureUrl}
                 textureScale={textureScale}
+                triplanar={triplanar}
+                planarRepeat={kind === 'plane' ? repeat as [number, number] : undefined}
                 color={renderColor}
                 mirror={props?.reflectorMirror ?? 0}
                 roughness={props?.reflectorRoughness ?? 1}
+                opacity={opacity}
+            />
+        )
+    }
+
+    if (materialType === 'toon') {
+        return (
+            <ToonPrimitiveMaterial
+                textureUrl={textureUrl}
+                repeat={repeat}
+                color={renderColor}
+                opacity={opacity}
+                emissive={emissive}
+                emissiveIntensity={emissiveIntensity}
             />
         )
     }
@@ -119,7 +246,11 @@ function PrimitiveMaterial({
                 textureUrl={textureUrl}
                 tileMeters={textureScale}
                 color={renderColor}
-                highlighted={highlighted}
+                opacity={opacity}
+                roughness={roughness}
+                metalness={metalness}
+                emissive={emissive}
+                emissiveIntensity={emissiveIntensity}
             />
         )
     }
@@ -128,9 +259,13 @@ function PrimitiveMaterial({
         return (
             <TexturedStandardMaterial
                 textureUrl={textureUrl}
-                repeat={textureScale}
+                repeat={repeat}
                 color={renderColor}
-                highlighted={highlighted}
+                opacity={opacity}
+                roughness={roughness}
+                metalness={metalness}
+                emissive={emissive}
+                emissiveIntensity={emissiveIntensity}
             />
         )
     }
@@ -138,10 +273,78 @@ function PrimitiveMaterial({
     return (
         <meshStandardMaterial
             color={renderColor}
-            roughness={0.8}
-            metalness={0.05}
-            emissive={highlighted ? '#ffffff' : '#000000'}
-            emissiveIntensity={highlighted ? 0.25 : 0}
+            roughness={roughness}
+            metalness={metalness}
+            emissive={emissive}
+            emissiveIntensity={emissiveIntensity}
+            opacity={opacity}
+            transparent={opacity < 0.999}
+            depthWrite={opacity >= 0.999}
+        />
+    )
+}
+
+function BasicPrimitiveMaterial({
+    textureUrl,
+    repeat,
+    color,
+    opacity,
+}: {
+    textureUrl: string | undefined
+    repeat: number | [number, number]
+    color: string
+    opacity: number
+}) {
+    const texture = useSafeTexture(textureUrl ?? '')
+    const configured = useMemo(
+        () => (texture ? configureTexture(texture, repeat) : null),
+        [texture, repeat],
+    )
+
+    return (
+        <meshBasicMaterial
+            map={configured}
+            color={color}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+            opacity={opacity}
+            transparent={opacity < 0.999}
+            depthWrite={opacity >= 0.999}
+        />
+    )
+}
+
+function ToonPrimitiveMaterial({
+    textureUrl,
+    repeat,
+    color,
+    opacity,
+    emissive,
+    emissiveIntensity,
+}: {
+    textureUrl: string | undefined
+    repeat: number | [number, number]
+    color: string
+    opacity: number
+    emissive: string
+    emissiveIntensity: number
+}) {
+    const texture = useSafeTexture(textureUrl ?? '')
+    const configured = useMemo(
+        () => (texture ? configureTexture(texture, repeat) : null),
+        [texture, repeat],
+    )
+
+    return (
+        <meshToonMaterial
+            map={configured}
+            color={color}
+            emissive={emissive}
+            emissiveIntensity={emissiveIntensity}
+            side={THREE.DoubleSide}
+            opacity={opacity}
+            transparent={opacity < 0.999}
+            depthWrite={opacity >= 0.999}
         />
     )
 }
@@ -150,31 +353,60 @@ function TexturedStandardMaterial({
     textureUrl,
     repeat,
     color,
-    highlighted,
+    opacity,
+    roughness,
+    metalness,
+    emissive,
+    emissiveIntensity,
 }: {
     textureUrl: string
-    repeat: number
+    repeat: number | [number, number]
     color: string
-    highlighted?: boolean
+    opacity: number
+    roughness: number
+    metalness: number
+    emissive: string
+    emissiveIntensity: number
 }) {
-    const texture = useTexture(textureUrl)
+    const texture = useSafeTexture(textureUrl)
     const configured = useMemo(() => {
+        if (!texture) return null
         const t = texture.clone()
         t.wrapS = t.wrapT = THREE.RepeatWrapping
-        t.repeat.set(repeat, repeat)
+        if (Array.isArray(repeat)) t.repeat.set(repeat[0], repeat[1])
+        else t.repeat.set(repeat, repeat)
         t.needsUpdate = true
         return t
     }, [texture, repeat])
+
+    if (!configured) {
+        return (
+            <meshStandardMaterial
+                color={color}
+                roughness={roughness}
+                metalness={metalness}
+                emissive={emissive}
+                emissiveIntensity={emissiveIntensity}
+                side={THREE.DoubleSide}
+                opacity={opacity}
+                transparent={opacity < 0.999}
+                depthWrite={opacity >= 0.999}
+            />
+        )
+    }
 
     return (
         <meshStandardMaterial
             map={configured}
             color={color}
-            roughness={0.8}
-            metalness={0.05}
-            emissive={highlighted ? '#ffffff' : '#000000'}
-            emissiveIntensity={highlighted ? 0.25 : 0}
+            roughness={roughness}
+            metalness={metalness}
+            emissive={emissive}
+            emissiveIntensity={emissiveIntensity}
             side={THREE.DoubleSide}
+            opacity={opacity}
+            transparent={opacity < 0.999}
+            depthWrite={opacity >= 0.999}
         />
     )
 }
@@ -194,16 +426,25 @@ function TriplanarStandardMaterial({
     textureUrl,
     tileMeters,
     color,
-    highlighted,
+    opacity,
+    roughness,
+    metalness,
+    emissive,
+    emissiveIntensity,
 }: {
     textureUrl: string
     tileMeters: number
     color: string
-    highlighted?: boolean
+    opacity: number
+    roughness: number
+    metalness: number
+    emissive: string
+    emissiveIntensity: number
 }) {
-    const texture = useTexture(textureUrl)
+    const texture = useSafeTexture(textureUrl)
 
     const material = useMemo(() => {
+        if (!texture) return null
         const mapTex = texture.clone()
         mapTex.wrapS = mapTex.wrapT = THREE.RepeatWrapping
         // Quando triplanar, mantemos repeat 1: as UVs são construídas no shader.
@@ -213,11 +454,14 @@ function TriplanarStandardMaterial({
         const mat = new THREE.MeshStandardMaterial({
             map: mapTex,
             color: new THREE.Color(color),
-            roughness: 0.8,
-            metalness: 0.05,
-            emissive: new THREE.Color(highlighted ? 0xffffff : 0x000000),
-            emissiveIntensity: highlighted ? 0.25 : 0,
+            roughness,
+            metalness,
+            emissive: new THREE.Color(emissive),
+            emissiveIntensity,
             side: THREE.DoubleSide,
+            opacity,
+            transparent: opacity < 0.999,
+            depthWrite: opacity >= 0.999,
         })
 
         const uniforms = { uTile: { value: Math.max(0.001, tileMeters) } }
@@ -266,34 +510,48 @@ function TriplanarStandardMaterial({
         }
 
         return mat
-    }, [texture, tileMeters, color, highlighted])
+    }, [texture, tileMeters, color, roughness, metalness, emissive, emissiveIntensity, opacity])
+
+    if (!material) {
+        return (
+            <meshStandardMaterial
+                color={color}
+                roughness={roughness}
+                metalness={metalness}
+                emissive={emissive}
+                emissiveIntensity={emissiveIntensity}
+                side={THREE.DoubleSide}
+                opacity={opacity}
+                transparent={opacity < 0.999}
+                depthWrite={opacity >= 0.999}
+            />
+        )
+    }
 
     // Atualiza o uniform quando tileMeters muda (sem recompilar shader se
     // estrutura for a mesma — mas useMemo já recria por tileMeters, então
     // este efeito é redundante; deixo como defensivo).
-    useMemo(() => {
-        const shaderUniforms = (material as unknown as { userData: { shader?: { uniforms: Record<string, { value: number }> } } })
-            .userData.shader
-        if (shaderUniforms?.uniforms?.uTile) {
-            shaderUniforms.uniforms.uTile.value = tileMeters
-        }
-    }, [material, tileMeters])
-
     return <primitive object={material} attach="material" />
 }
 
 function ReflectorMaterial({
     textureUrl,
     textureScale,
+    triplanar,
+    planarRepeat,
     color,
     mirror,
     roughness,
+    opacity,
 }: {
     textureUrl: string | undefined
     textureScale: number
+    triplanar: boolean
+    planarRepeat?: [number, number]
     color: string
     mirror: number
     roughness: number
+    opacity: number
 }) {
     if (!textureUrl) {
         return (
@@ -305,42 +563,56 @@ function ReflectorMaterial({
                 minDepthThreshold={0.9}
                 maxDepthThreshold={1}
                 metalness={0}
+                opacity={opacity}
+                transparent={opacity < 0.999}
+                depthWrite={opacity >= 0.999}
             />
         )
     }
     return <ReflectorWithTexture
         url={textureUrl}
         textureScale={textureScale}
+        triplanar={triplanar}
+        planarRepeat={planarRepeat}
         color={color}
         mirror={mirror}
         roughness={roughness}
+        opacity={opacity}
     />
 }
 
 function ReflectorWithTexture({
     url,
     textureScale,
+    planarRepeat,
     color,
     mirror,
     roughness,
+    opacity,
 }: {
     url: string
     textureScale: number
+    triplanar: boolean
+    planarRepeat?: [number, number]
     color: string
     mirror: number
     roughness: number
+    opacity: number
 }) {
-    const texture = useTexture(url)
+    const texture = useSafeTexture(url)
     const configured = useMemo(() => {
+        if (!texture) return null
         const t = texture.clone()
         t.wrapS = t.wrapT = THREE.RepeatWrapping
-        t.repeat.set(textureScale, textureScale)
+        if (planarRepeat) t.repeat.set(planarRepeat[0], planarRepeat[1])
+        else t.repeat.set(textureScale, textureScale)
         t.needsUpdate = true
         return t
-    }, [texture, textureScale])
+    }, [texture, textureScale, planarRepeat])
 
     return (
         <MeshReflectorMaterial
+            key={`${url}:${textureScale}:${planarRepeat?.join('x') ?? 'none'}`}
             map={configured}
             color={color}
             mirror={mirror}
@@ -349,6 +621,9 @@ function ReflectorWithTexture({
             minDepthThreshold={0.9}
             maxDepthThreshold={1}
             metalness={0}
+            opacity={opacity}
+            transparent={opacity < 0.999}
+            depthWrite={opacity >= 0.999}
         />
     )
 }

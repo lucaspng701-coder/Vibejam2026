@@ -1,0 +1,8 @@
+{
+    "category": "breakable",
+    "mass": 12,
+    "fractureThreshold": 30,
+    "fracturedAssetId": "breakables/table_fractured",
+    "debrisMass": 6,
+    "debrisLifetimeMs": 15000
+}

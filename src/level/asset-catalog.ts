@@ -1,4 +1,4 @@
-import type { Category } from './types'
+import type { Category, ColliderBox } from './types'
 
 export interface AssetMeta {
     category?: Category
@@ -7,6 +7,9 @@ export interface AssetMeta {
     fracturedAssetId?: string
     debrisMass?: number
     debrisLifetimeMs?: number
+    colliderBoxes?: ColliderBox[]
+    colliderSize?: [number, number, number]
+    colliderOffset?: [number, number, number]
 }
 
 export interface AssetCatalogEntry {
@@ -87,4 +90,3 @@ export function resolveFracturedAssetId(assetId: string, explicit?: string): str
     if (byId.has(alt)) return alt
     return preferred
 }
-

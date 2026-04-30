@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Category, Instance, LightKind } from '../../level/types'
-import { defaultInstanceFor, ENEMY_ASSET_ID, PLAYER_ASSET_ID, useEditorStore } from '../state/store'
+import { defaultInstanceFor, DECAL_ASSET_ID, ENEMY_ASSET_ID, ENEMY_TRIGGER_ASSET_ID, PLAYER_ASSET_ID, useEditorStore } from '../state/store'
 import { ASSET_CATALOG } from '../../level/asset-catalog'
 
 interface AssetEntry {
@@ -31,6 +31,8 @@ const CATEGORY_LABEL: Record<Category, string> = {
     light: 'Light',
     player: 'Player',
     enemy: 'Enemy',
+    'enemy-trigger': 'Enemy Trigger',
+    decal: 'Decal',
 }
 
 const CATEGORIES: Category[] = ['static-bulk', 'static-prop', 'dynamic', 'breakable', 'no-collision']
@@ -189,6 +191,28 @@ export function AssetLibraryPanel() {
                                 onAdd={() =>
                                     addInstance({
                                         ...defaultInstanceFor(ENEMY_ASSET_ID, 'enemy'),
+                                    })
+                                }
+                            />
+                            <AssetCard
+                                label="Enemy Trigger"
+                                sub={ENEMY_TRIGGER_ASSET_ID}
+                                icon="!"
+                                iconColor="#ffd400"
+                                onAdd={() =>
+                                    addInstance({
+                                        ...defaultInstanceFor(ENEMY_TRIGGER_ASSET_ID, 'enemy-trigger'),
+                                    })
+                                }
+                            />
+                            <AssetCard
+                                label="Decal / Sprite Plane"
+                                sub={DECAL_ASSET_ID}
+                                icon="▣"
+                                iconColor="#f7f7f7"
+                                onAdd={() =>
+                                    addInstance({
+                                        ...defaultInstanceFor(DECAL_ASSET_ID, 'decal'),
                                     })
                                 }
                             />

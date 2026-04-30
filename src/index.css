@@ -24,3 +24,16 @@ html, body, #root {
   width: 80px !important;
   height: 48px !important;
 }
+
+/* Deixa os valores numericos do Leva grandes o bastante para print/ajuste fino. */
+#leva__root input {
+  min-width: 82px !important;
+  font-size: 15px !important;
+  line-height: 22px !important;
+  text-align: right !important;
+}
+
+#leva__root label,
+#leva__root button {
+  font-size: 13px !important;
+}

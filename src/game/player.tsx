@@ -1,13 +1,16 @@
 import Rapier from '@dimforge/rapier3d-compat'
-import { KeyboardControls, PerspectiveCamera, PointerLockControls, useKeyboardControls, useGLTF, useAnimations } from '@react-three/drei'
+import { KeyboardControls, PointerLockControls, useKeyboardControls } from '@react-three/drei'
 import { useFrame, useThree, createPortal } from '@react-three/fiber'
 import { CapsuleCollider, RigidBody, RigidBodyProps, useBeforePhysicsStep, useRapier } from '@react-three/rapier'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useGamepad } from '../common/hooks/use-gamepad'
 import { useControls } from 'leva'
 import * as THREE from 'three'
 import { playerCollision } from './physics-collision-filters'
 import { Component, Entity, EntityType } from './ecs'
+import type { Vec3 } from '../level/types'
+import { SpriteFrameAnimation, type SpriteAnimationState } from './sprite-animation'
+import { PLAYER_WEAPON_RELOAD_COMPLETE_EVENT, PLAYER_WEAPON_RELOAD_EVENT, PLAYER_WEAPON_SHOOT_EVENT } from './weapon-events'
 
 const _direction = new THREE.Vector3()
 const _frontVector = new THREE.Vector3()
@@ -19,6 +22,122 @@ const _cameraPosition = new THREE.Vector3()
 
 const normalFov = 90
 const sprintFov = 100
+const STAND_CAMERA_HEIGHT = 1
+const CROUCH_CAMERA_HEIGHT = 0.35
+const STAND_CAPSULE_HALF_HEIGHT = 1
+const CROUCH_CAPSULE_HALF_HEIGHT = 0.45
+const PLAYER_CAPSULE_RADIUS = 0.5
+const CROUCH_COLLIDER_OFFSET_Y =
+    -(STAND_CAPSULE_HALF_HEIGHT + PLAYER_CAPSULE_RADIUS) +
+    (CROUCH_CAPSULE_HALF_HEIGHT + PLAYER_CAPSULE_RADIUS)
+const CROUCH_SPEED_MULTIPLIER = 0.7
+
+const WEAPON_SPRITE_STATES: Record<string, SpriteAnimationState> = {
+    idle: {
+        frames: ['/assets/sprites/player/staplergun/idle/staplergun_idle.png'],
+        frameMs: 120,
+        loop: true,
+    },
+    shoot: {
+        frames: [
+            '/assets/sprites/player/staplergun/shooting/Shoot_00000.png',
+            '/assets/sprites/player/staplergun/shooting/Shoot_00001.png',
+            '/assets/sprites/player/staplergun/shooting/Shoot_00002.png',
+            '/assets/sprites/player/staplergun/shooting/Shoot_00003.png',
+            '/assets/sprites/player/staplergun/shooting/Shoot_00004.png',
+            '/assets/sprites/player/staplergun/shooting/Shoot_00005.png',
+            '/assets/sprites/player/staplergun/shooting/Shoot_00006.png',
+        ],
+        frameMs: 12,
+        loop: false,
+    },
+    reload: {
+        frames: [
+            '/assets/sprites/player/staplergun/reloading/Reload_00004.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00005.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00006.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00007.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00008.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00009.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00010.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00011.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00012.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00013.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00014.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00015.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00016.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00017.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00018.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00019.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00020.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00021.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00022.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00023.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00024.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00025.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00026.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00027.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00028.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00029.png',
+            '/assets/sprites/player/staplergun/reloading/Reload_00030.png',
+        ],
+        frameMs: 80,
+        loop: false,
+    },
+}
+
+function FirstPersonWeaponSprite({
+    position,
+    scale,
+}: {
+    position: [number, number, number]
+    scale: number
+}) {
+    const [state, setState] = useState<'idle' | 'shoot' | 'reload'>('idle')
+    const stateRef = useRef<typeof state>(state)
+
+    useEffect(() => {
+        stateRef.current = state
+    }, [state])
+
+    useEffect(() => {
+        const onShoot = () => {
+            if (stateRef.current === 'reload') return
+            setState('shoot')
+        }
+        const onReload = () => {
+            setState('reload')
+        }
+        window.addEventListener(PLAYER_WEAPON_SHOOT_EVENT, onShoot)
+        window.addEventListener(PLAYER_WEAPON_RELOAD_EVENT, onReload)
+        return () => {
+            window.removeEventListener(PLAYER_WEAPON_SHOOT_EVENT, onShoot)
+            window.removeEventListener(PLAYER_WEAPON_RELOAD_EVENT, onReload)
+        }
+    }, [])
+
+    const onAnimationComplete = (completedState: string) => {
+        if (completedState === 'reload') {
+            window.dispatchEvent(new CustomEvent(PLAYER_WEAPON_RELOAD_COMPLETE_EVENT))
+        }
+        if (completedState === stateRef.current) {
+            setState('idle')
+        }
+    }
+
+    return (
+        <group position={position}>
+            <SpriteFrameAnimation
+                states={WEAPON_SPRITE_STATES}
+                state={state}
+                width={scale}
+                faceCamera={false}
+                renderOrder={1000}
+                onComplete={onAnimationComplete}
+            />
+        </group>
+    )
+}
 
 const characterShapeOffset = 0.1
 const autoStepMaxHeight = 2
@@ -45,21 +164,31 @@ type PlayerProps = RigidBodyProps & {
     walkSpeed?: number
     runSpeed?: number
     jumpForce?: number
+    respawnPosition?: Vec3
+    spawnRotation?: Vec3
+    fallLimitY?: number
 }
 
-export const Player = ({ onMove, walkSpeed = 0.1, runSpeed = 0.15, jumpForce = 0.5, ...props }: PlayerProps) => {
+export const Player = ({
+    onMove,
+    walkSpeed = 0.1,
+    runSpeed = 0.15,
+    jumpForce = 0.5,
+    respawnPosition,
+    spawnRotation = [0, 0, 0],
+    fallLimitY = -20,
+    ...props
+}: PlayerProps) => {
     const playerRef = useRef<EntityType>(null!)
-    const gltf = useGLTF('/fps.glb')
-    const { actions } = useAnimations(gltf.animations, gltf.scene)
-    
-    const { x, y, z } = useControls('Arms Position', {
-        x: { value: 0.1, min: -1, max: 1, step: 0.1 },
-        y: { value: -0.62, min: -1, max: 1, step: 0.1 },
-        z: { value: -0.2, min: -2, max: 0, step: 0.1 }
+
+    const { x, y, z, scale } = useControls('Weapon Sprite', {
+        x: { value: 0.13, min: -1, max: 1, step: 0.01 },
+        y: { value: -0.26, min: -1, max: 1, step: 0.01 },
+        z: { value: -0.54, min: -2, max: -0.1, step: 0.01 },
+        scale: { value: 1.43, min: 0.2, max: 4, step: 0.01 },
     }, {
         collapsed: true,
         order: 998,
-        hidden: true
     })
 
     const rapier = useRapier()
@@ -81,10 +210,34 @@ export const Player = ({ onMove, walkSpeed = 0.1, runSpeed = 0.15, jumpForce = 0
     const holdingJump = useRef(false)
     const jumpTime = useRef(0)
     const jumping = useRef(false)
+    const lastRespawnAt = useRef(0)
+    const [colliderCrouched, setColliderCrouched] = useState(false)
 
-    // Animation states
-    const [isWalking, setIsWalking] = useState(false)
-    const [isRunning, setIsRunning] = useState(false)
+    const respawnPlayer = useCallback(() => {
+        const body = playerRef.current?.rigidBody
+        if (!body) return
+        const target = respawnPosition ?? (props.position as Vec3 | undefined) ?? [0, 2, 10]
+        body.setNextKinematicTranslation({ x: target[0], y: target[1], z: target[2] })
+        body.setTranslation({ x: target[0], y: target[1], z: target[2] }, true)
+        horizontalVelocity.current = { x: 0, z: 0 }
+        jumpVelocity.current = 0
+        jumping.current = false
+        holdingJump.current = false
+        camera.position.set(target[0], target[1] + STAND_CAMERA_HEIGHT, target[2])
+        camera.quaternion.setFromEuler(new THREE.Euler(0, spawnRotation[1] ?? 0, 0, 'YXZ'))
+    }, [camera, props.position, respawnPosition, spawnRotation])
+
+    useEffect(() => {
+        camera.quaternion.setFromEuler(new THREE.Euler(0, spawnRotation[1] ?? 0, 0, 'YXZ'))
+    }, [camera, spawnRotation])
+
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.code === 'KeyU') respawnPlayer()
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [respawnPlayer])
 
     useEffect(() => {
         const { world } = rapier
@@ -95,30 +248,11 @@ export const Player = ({ onMove, walkSpeed = 0.1, runSpeed = 0.15, jumpForce = 0
         characterController.current.enableSnapToGround(0.1)
         characterController.current.setApplyImpulsesToDynamicBodies(true)
 
-        // Stop all animations initially
-        Object.values(actions).forEach(action => action?.stop())
-
         return () => {
             world.removeCharacterController(characterController.current)
             characterController.current = null!
         }
-    }, [])
-
-    // Handle shooting animation
-    useEffect(() => {
-        const handleShoot = () => {
-            if (document.pointerLockElement) {
-                const fireAction = actions['Rig|Saiga_Fire']
-                if (fireAction) {
-                    fireAction.setLoop(THREE.LoopOnce, 1)
-                    fireAction.reset().play()
-                }
-            }
-        }
-
-        window.addEventListener('pointerdown', handleShoot)
-        return () => window.removeEventListener('pointerdown', handleShoot)
-    }, [actions])
+    }, [rapier])
 
     useBeforePhysicsStep(() => {
         const characterRigidBody = playerRef.current.rigidBody
@@ -127,22 +261,22 @@ export const Player = ({ onMove, walkSpeed = 0.1, runSpeed = 0.15, jumpForce = 0
 
         const characterCollider = characterRigidBody.collider(0)
 
-        const { forward, backward, left, right, jump, sprint } = getKeyboardControls() as KeyControls
-        
+        const { forward, backward, left, right, jump, sprint, crouch } = getKeyboardControls() as KeyControls
+
         // Combine keyboard and gamepad input
         const moveForward = forward || (gamepadState.leftStick.y < 0)
         const moveBackward = backward || (gamepadState.leftStick.y > 0)
         const moveLeft = left || (gamepadState.leftStick.x < 0)
         const moveRight = right || (gamepadState.leftStick.x > 0)
         const isJumping = jump || gamepadState.buttons.jump
-        const isSprinting = sprint || gamepadState.buttons.leftStickPress
+        const isCrouching = crouch
+        setColliderCrouched((current) => (current === isCrouching ? current : isCrouching))
+        const isSprinting = !isCrouching && (sprint || gamepadState.buttons.leftStickPress)
 
-        const speed = walkSpeed * (isSprinting ? runSpeed / walkSpeed : 1)
-        
-        // Update movement state for animations
-        const isMoving = moveForward || moveBackward || moveLeft || moveRight
-        setIsWalking(isMoving && !isSprinting)
-        setIsRunning(isMoving && isSprinting)
+        const speed =
+            walkSpeed *
+            (isSprinting ? runSpeed / walkSpeed : 1) *
+            (isCrouching ? CROUCH_SPEED_MULTIPLIER : 1)
 
         const grounded = characterController.current.computedGrounded()
 
@@ -223,19 +357,28 @@ export const Player = ({ onMove, walkSpeed = 0.1, runSpeed = 0.15, jumpForce = 0
         _characterLinvel.copy(characterRigidBody.linvel() as THREE.Vector3)
         const currentSpeed = _characterLinvel.length()
 
-        const { forward, backward, left, right } = getKeyboardControls() as KeyControls
-        const isMoving = forward || backward || left || right
-        const isSprinting = getKeyboardControls().sprint || gamepadState.buttons.leftStickPress
+        const controlsState = getKeyboardControls() as KeyControls
+        const isCrouching = controlsState.crouch
+        const isSprinting = !isCrouching && (controlsState.sprint || gamepadState.buttons.leftStickPress)
 
         const translation = characterRigidBody.translation()
+        if (translation.y < fallLimitY) {
+            const now = performance.now()
+            if (now - lastRespawnAt.current > 500) {
+                lastRespawnAt.current = now
+                respawnPlayer()
+            }
+            return
+        }
         onMove?.(translation as THREE.Vector3)
-        const cameraPosition = _cameraPosition.set(translation.x, translation.y + 1, translation.z)
+        const targetCameraHeight = isCrouching ? CROUCH_CAMERA_HEIGHT : STAND_CAMERA_HEIGHT
+        const cameraPosition = _cameraPosition.set(translation.x, translation.y + targetCameraHeight, translation.z)
         const cameraEuler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ')
-        
+
         // Different sensitivities for horizontal and vertical aiming
         const CAMERA_SENSITIVITY_X = 0.04
         const CAMERA_SENSITIVITY_Y = 0.03
-        
+
         // Apply gamepad right stick for camera rotation
         if (gamepadState.connected && (Math.abs(gamepadState.rightStick.x) > 0 || Math.abs(gamepadState.rightStick.y) > 0)) {
             // Update Euler angles
@@ -245,48 +388,28 @@ export const Player = ({ onMove, walkSpeed = 0.1, runSpeed = 0.15, jumpForce = 0
                 -Math.PI / 2,
                 Math.PI / 2
             )
-            
+
             // Apply the new rotation while maintaining up vector
             camera.quaternion.setFromEuler(cameraEuler)
         }
-        
-        camera.position.lerp(cameraPosition, delta * 30)
-        
+
+        camera.position.lerp(cameraPosition, Math.min(1, delta * 30))
+
         // FOV change for sprint
         if (camera instanceof THREE.PerspectiveCamera) {
-            camera.fov = THREE.MathUtils.lerp(camera.fov, isSprinting && currentSpeed > 0.1 ? sprintFov : normalFov, 10 * delta)
+            camera.fov = THREE.MathUtils.lerp(
+                camera.fov,
+                isSprinting && currentSpeed > 0.1 ? sprintFov : normalFov,
+                Math.min(1, 10 * delta),
+            )
             camera.updateProjectionMatrix()
         }
     })
-    
-    // Handle movement animations
-    useEffect(() => {
-        const walkAction = actions['Rig|Saiga_Walk']
-        const runAction = actions['Rig|Saiga_Run']
-
-        if (isRunning) {
-            walkAction?.stop()
-            runAction?.play()
-        } else if (isWalking) {
-            runAction?.stop()
-            walkAction?.play()
-        } else {
-            walkAction?.stop()
-            runAction?.stop()
-        }
-    }, [isWalking, isRunning, actions])
 
     return (
         <>
             {createPortal(
-                <group>
-                    <primitive
-                        object={gltf.scene}
-                        position={[x, y, z]}
-                        rotation={[0, Math.PI, 0]}
-                        scale={0.7}
-                    />
-                </group>,
+                <FirstPersonWeaponSprite position={[x, y, z]} scale={scale} />,
                 camera,
             )}
             <Entity isPlayer ref={playerRef}>
@@ -300,7 +423,17 @@ export const Player = ({ onMove, walkSpeed = 0.1, runSpeed = 0.15, jumpForce = 0
                     >
                         <object3D name="player" />
                         <CapsuleCollider
-                            args={[1, 0.5]}
+                            args={[
+                                colliderCrouched
+                                    ? CROUCH_CAPSULE_HALF_HEIGHT
+                                    : STAND_CAPSULE_HALF_HEIGHT,
+                                PLAYER_CAPSULE_RADIUS,
+                            ]}
+                            position={[
+                                0,
+                                colliderCrouched ? CROUCH_COLLIDER_OFFSET_Y : 0,
+                                0,
+                            ]}
                             collisionGroups={playerCollision()}
                             solverGroups={playerCollision()}
                         />
@@ -318,6 +451,7 @@ type KeyControls = {
     right: boolean
     sprint: boolean
     jump: boolean
+    crouch: boolean
 }
 
 const controls = [
@@ -327,6 +461,7 @@ const controls = [
     { name: 'right', keys: ['ArrowRight', 'd', 'D'] },
     { name: 'jump', keys: ['Space'] },
     { name: 'sprint', keys: ['Shift'] },
+    { name: 'crouch', keys: ['c', 'C'] },
 ]
 
 export const PlayerControls = ({ children }: PlayerControls) => {
@@ -337,6 +472,3 @@ export const PlayerControls = ({ children }: PlayerControls) => {
         </KeyboardControls>
     )
 }
-
-// Preload the model to ensure it's cached
-useGLTF.preload('/fps.glb')

@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "name": "level3_legacy",
+  "instances": [
+    {
+      "id": "player_spawn",
+      "assetId": "player/spawn",
+      "category": "player",
+      "position": [
+        0,
+        2,
+        11.840876512450725
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "floor",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [
+        0,
+        -0.1,
+        -0.42926906551214206
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        50,
+        0.2,
+        50
+      ],
+      "props": {
+        "textureUrl": "/final-texture.png",
+        "textureScale": 12,
+        "reflector": true,
+        "reflectorMirror": 0.4,
+        "reflectorRoughness": 1,
+        "triplanar": true
+      }
+    },
+    {
+      "id": "wall_east",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [
+        25,
+        2,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        2,
+        4,
+        50
+      ],
+      "props": {
+        "textureUrl": "/final-texture.png",
+        "textureScale": 4,
+        "triplanar": true
+      }
+    },
+    {
+      "id": "wall_west",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [
+        -25,
+        2,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        2,
+        4,
+        50
+      ],
+      "props": {
+        "textureUrl": "/final-texture.png",
+        "textureScale": 4,
+        "triplanar": true
+      }
+    },
+    {
+      "id": "wall_north",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [
+        0,
+        2,
+        25
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        50,
+        4,
+        2
+      ],
+      "props": {
+        "textureUrl": "/final-texture.png",
+        "textureScale": 4,
+        "triplanar": true
+      }
+    },
+    {
+      "id": "wall_south",
+      "assetId": "primitives/cube",
+      "category": "static-bulk",
+      "position": [
+        0,
+        2,
+        -25
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        50,
+        4,
+        2
+      ],
+      "props": {
+        "textureUrl": "/final-texture.png",
+        "textureScale": 4,
+        "triplanar": true
+      }
+    }
+  ]
+}

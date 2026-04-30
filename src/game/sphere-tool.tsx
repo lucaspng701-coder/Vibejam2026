@@ -1,13 +1,16 @@
-import { ActiveEvents } from '@dimforge/rapier3d-compat'
-import { useThree, useFrame } from '@react-three/fiber'
-import { BallCollider, RigidBody, type CollisionEnterPayload, type RapierRigidBody } from '@react-three/rapier'
+import Rapier, { ActiveEvents } from '@dimforge/rapier3d-compat'
+import { useFrame, useThree } from '@react-three/fiber'
+import { BallCollider, RigidBody, interactionGroups, useRapier, type CollisionEnterPayload, type RapierRigidBody } from '@react-three/rapier'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useControls } from 'leva'
 import { useGamepad } from '../common/hooks/use-gamepad'
 import * as THREE from 'three'
-import { projectileCollision } from './physics-collision-filters'
+import { raycastEnemyHitTargets } from './enemy-hit-registry'
+import { CollisionGroup, projectileCollision, projectileSolverCollision } from './physics-collision-filters'
+import { PROJECTILE_HIT_ENEMY_EVENT, type ProjectileHitEnemyDetail } from './projectile-hit-events'
 import { SurfaceImpactFx } from './projectile-surface-impact'
-import { registerSphereProjectileHandle, unregisterSphereProjectileHandle } from './sphere-projectile-handles'
+import { getSphereProjectileIdByHandle, registerSphereProjectileHandle, unregisterSphereProjectileHandle } from './sphere-projectile-handles'
+import { PLAYER_WEAPON_RELOAD_COMPLETE_EVENT, PLAYER_WEAPON_RELOAD_EVENT, PLAYER_WEAPON_SHOOT_EVENT } from './weapon-events'
 
 // -----------------------------------------------------------------------------
 // Ajuste visual / física dos projéteis (SphereTool) — tudo no mesmo arquivo:
@@ -35,11 +38,64 @@ const _uAxis = new THREE.Vector3()
 const _vAxis = new THREE.Vector3()
 const _wUp = new THREE.Vector3(0, 1, 0)
 const _wAlt = new THREE.Vector3(1, 0, 0)
-/** Reuso: boca da arma = olho + offset no espaço local da câmera (igual `shootSphere`). */
-const _muzzleOffsetLocal = new THREE.Vector3()
+const _hitscanOrigin = new THREE.Vector3()
+const _hitscanDirection = new THREE.Vector3()
+const _localShotDirection = new THREE.Vector3()
+const _shotRotation = new THREE.Euler()
+let shotAudioContext: AudioContext | null = null
 
-const TRAIL_TUBE_RADIAL = 6
+function playShotSound() {
+    const AudioContextCtor =
+        window.AudioContext ??
+        (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextCtor) return
+    shotAudioContext ??= new AudioContextCtor()
+    const ctx = shotAudioContext
+    if (ctx.state === 'suspended') void ctx.resume()
+
+    const now = ctx.currentTime
+    const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * 0.045))
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+    const data = noiseBuffer.getChannelData(0)
+    for (let i = 0; i < data.length; i += 1) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / data.length)
+    }
+
+    const noise = ctx.createBufferSource()
+    const osc = ctx.createOscillator()
+    const filter = ctx.createBiquadFilter()
+    const noiseGain = ctx.createGain()
+    const toneGain = ctx.createGain()
+
+    noise.buffer = noiseBuffer
+    filter.type = 'highpass'
+    filter.frequency.setValueAtTime(900, now)
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(180, now)
+    osc.frequency.exponentialRampToValueAtTime(75, now + 0.055)
+
+    noiseGain.gain.setValueAtTime(0.13, now)
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045)
+    toneGain.gain.setValueAtTime(0.08, now)
+    toneGain.gain.exponentialRampToValueAtTime(0.001, now + 0.065)
+
+    noise.connect(filter)
+    filter.connect(noiseGain)
+    noiseGain.connect(ctx.destination)
+    osc.connect(toneGain)
+    toneGain.connect(ctx.destination)
+
+    noise.start(now)
+    noise.stop(now + 0.05)
+    osc.start(now)
+    osc.stop(now + 0.07)
+}
+
+const TRAIL_TUBE_RADIAL = 4
+const TRAILS_ENABLED = true
+const TRAIL_SPAWN_DELAY_MS = 24
 const TWO_PI = Math.PI * 2
+const TRAIL_ORIGIN_TAPER_FRACTION = 0.36
 
 const TRAIL_OPACITY_BASE = 1
 /** Aumenta brilho do tubo pós-vertexColors (MeshBasic ainda passa por tone mapping; ver `toneMapped: false` no mat). */
@@ -62,37 +118,27 @@ function computeLifeOpacity(
 }
 
 export const PROJECTILE_SPHERE_RADIUS = 0.3
-export const PROJECTILE_LIFETIME_MS = 200
+export const PROJECTILE_LIFETIME_MS = 120
 /** Máx. eventos de impacto com superfície por projétil (ex.: ricochete). */
-const MAX_IMPACTS_PER_BULLET = 12
+const MAX_IMPACTS_PER_BULLET = 2
 const SHOOT_FORCE = 250
-export const TRAIL_MAX_POINTS = 24
+export const TRAIL_MAX_POINTS = 10
+const ENEMY_HITSCAN_RANGE = 120
 
 /** Cor da cauda / ponta (0–1) — ajuste para tom quente; sem shading (Basic + unlit, ver material). */
 const TRAIL_COLOR_TAIL: [number, number, number] = [1, 1, 1]
 const TRAIL_COLOR_HEAD: [number, number, number] = [1, 1, 1]
 
-// ═══ Muzzle flash (só visual, sem colisão) — mude `mode` / cores aqui ═══
-const MUZZLE_FLASH = {
-    /** 'solid' = um anel; 'gradient' = anel claro (core) + anel borda (edge) */
-    mode: 'gradient' as 'solid' | 'gradient',
-    colorSolid: 0xffd040,
-    colorCore: 0xffffff,
-    colorEdge: 0xff8800,
-    durationMs: 78,
-    /** escala do raio do anel (animação) */
-    scaleMax: 0.82,
-} as const
-
-/**
- * Espaço local da câmera (m). Mesmos x/y; **z** negativo = sentido da mira; z positivo = atrás (evitar).
- * Se ajustou com +2,5, troque a **carga** sinalizando: mantém 2,5 em módulo com **−** em vez de pôr
- * “profundidade” na reta de `getWorldDirection` a partir do olho (distorce o bico).
- */
 const EMITTER_OFFSET_FROM_CAMERA = {
-    x: 0.14,
-    y: -0.3,
-    z: -1.6,
+    x: 0.1,
+    y: -0.08,
+    z: -0.21,
+}
+
+const EMITTER_ROTATION_DEG = {
+    x: -1.2,
+    y: 0.6,
+    z: 29.8,
 }
 
 type SphereEntry = {
@@ -108,6 +154,58 @@ type SurfaceImpactItem = {
     id: string
     pos: [number, number, number]
     nrm: [number, number, number]
+}
+
+type HitscanTrailItem = {
+    id: string
+    from: [number, number, number]
+    to: [number, number, number]
+    spawnedAt: number
+}
+
+function isEnemyCollision(payload: CollisionEnterPayload): boolean {
+    return Boolean(payload.other.rigidBodyObject?.name?.startsWith('enemy-'))
+}
+
+function HitscanTrail({ item, onDone }: { item: HitscanTrailItem; onDone: () => void }) {
+    const line = useMemo(() => {
+        const geom = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(...item.from),
+            new THREE.Vector3(...item.to),
+        ])
+        const mat = new THREE.LineBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.9,
+            toneMapped: false,
+            blending: THREE.AdditiveBlending,
+        })
+        return new THREE.Line(geom, mat)
+    }, [item.from, item.to])
+
+    useEffect(() => {
+        return () => {
+            line.geometry.dispose()
+                ; (line.material as THREE.Material).dispose()
+        }
+    }, [line])
+
+    useFrame(() => {
+        const age = performance.now() - item.spawnedAt
+        if (age < TRAIL_SPAWN_DELAY_MS) {
+            line.visible = false
+            return
+        }
+        line.visible = true
+        const u = (age - TRAIL_SPAWN_DELAY_MS) / 90
+        if (u >= 1) {
+            onDone()
+            return
+        }
+        ; (line.material as THREE.LineBasicMaterial).opacity = 0.9 * (1 - u) * (1 - u)
+    })
+
+    return <primitive object={line} />
 }
 
 type ProjectileProps = {
@@ -205,13 +303,25 @@ function BulletTrail({
 
     useFrame(() => {
         const mat = mesh.material as THREE.MeshBasicMaterial
-        const lifeOp = computeLifeOpacity(spawnedAt, PROJECTILE_LIFETIME_MS, lifeEndFade)
-        mat.opacity = TRAIL_OPACITY_BASE * lifeOp
+        const age = performance.now() - spawnedAt
+        if (age < TRAIL_SPAWN_DELAY_MS) {
+            mesh.visible = false
+            return
+        }
 
         const t = rigidBodyRef.current?.translation()
         if (!t) {
             return
         }
+
+        if (!mesh.visible) {
+            mesh.visible = true
+            ring.current = [new THREE.Vector3(t.x, t.y, t.z)]
+        }
+
+        const lifeOp = computeLifeOpacity(spawnedAt, PROJECTILE_LIFETIME_MS, lifeEndFade)
+        mat.opacity = TRAIL_OPACITY_BASE * lifeOp
+
         const v = new THREE.Vector3(t.x, t.y, t.z)
         const ringArr = ring.current
         const last = ringArr.length > 0 ? ringArr[ringArr.length - 1]! : null
@@ -255,13 +365,16 @@ function BulletTrail({
 
             const pt = ringArr[i]!
             const along = n > 1 ? i / (n - 1) : 0
+            const originT = Math.min(1, Math.max(0, along / TRAIL_ORIGIN_TAPER_FRACTION))
+            const originFade = originT * originT * (3 - 2 * originT)
             const tailThin = 1 - tpr * (1 - along)
-            const rTube = rBase * Math.max(0.01, tailThin)
+            const rTube = rBase * Math.max(0.001, tailThin * originFade)
             const baseR = TRAIL_COLOR_TAIL[0] + (TRAIL_COLOR_HEAD[0] - TRAIL_COLOR_TAIL[0]) * along
             const baseG = TRAIL_COLOR_TAIL[1] + (TRAIL_COLOR_HEAD[1] - TRAIL_COLOR_TAIL[1]) * along
             const baseB = TRAIL_COLOR_TAIL[2] + (TRAIL_COLOR_HEAD[2] - TRAIL_COLOR_TAIL[2]) * along
             const tailBlend = along * along
-            const fade = 1 - (1 - tailBlend) * tailFade
+            const normalFade = 1 - (1 - tailBlend) * tailFade
+            const fade = THREE.MathUtils.lerp(1, normalFade, originFade)
             const r = Math.min(1, baseR * fade * TRAIL_COLOR_BOOST)
             const g0 = Math.min(1, baseG * fade * TRAIL_COLOR_BOOST)
             const b0 = Math.min(1, baseB * fade * TRAIL_COLOR_BOOST)
@@ -288,92 +401,6 @@ function BulletTrail({
     return <primitive object={mesh} />
 }
 
-type MuzzleFlashItem = { id: string; t0: number }
-
-/**
- * Pisca na boca da arma, sem colisor. Posição a cada frame = câmera + `EMITTER_OFFSET_FROM_CAMERA`
- * (fica colado na “arma”, não no ponto fixo de onde a bala nasceu no mundo). Cores: `MUZZLE_FLASH`.
- */
-function MuzzleFlashFx({ item, onDone }: { item: MuzzleFlashItem; onDone: () => void }) {
-    const camera = useThree((s) => s.camera)
-    const gRef = useRef<THREE.Group>(null)
-    const innerRef = useRef<THREE.Mesh>(null)
-    const outerRef = useRef<THREE.Mesh>(null)
-    const solidRef = useRef<THREE.Mesh>(null)
-    const done = useRef(false)
-    const M = MUZZLE_FLASH
-
-    const syncMuzzleToCamera = useCallback(() => {
-        const g = gRef.current
-        if (!g) return
-        _muzzleOffsetLocal.set(
-            EMITTER_OFFSET_FROM_CAMERA.x,
-            EMITTER_OFFSET_FROM_CAMERA.y,
-            EMITTER_OFFSET_FROM_CAMERA.z
-        )
-        _muzzleOffsetLocal.applyQuaternion(camera.quaternion)
-        g.position.copy(camera.position).add(_muzzleOffsetLocal)
-        g.quaternion.copy(camera.quaternion)
-    }, [camera])
-
-    useLayoutEffect(() => {
-        syncMuzzleToCamera()
-    }, [syncMuzzleToCamera, item.id])
-
-    useFrame(() => {
-        if (done.current) return
-        const u = (performance.now() - item.t0) / M.durationMs
-        if (u >= 1) {
-            done.current = true
-            onDone()
-            return
-        }
-        syncMuzzleToCamera()
-        const g = gRef.current
-        const pulse = 1 - (1 - u) * (1 - u)
-        const s = 0.12 + M.scaleMax * (0.35 + 0.65 * pulse)
-        const op = 0.92 * (1 - u) * (1 - u)
-        g?.scale.setScalar(s)
-        if (M.mode === 'gradient') {
-            if (innerRef.current) (innerRef.current.material as THREE.MeshBasicMaterial).opacity = op
-            if (outerRef.current) (outerRef.current.material as THREE.MeshBasicMaterial).opacity = op * 0.88
-        } else if (solidRef.current) {
-            (solidRef.current.material as THREE.MeshBasicMaterial).opacity = op
-        }
-    })
-
-    const matProps = {
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-        blending: THREE.AdditiveBlending,
-    } as const
-
-    if (M.mode === 'solid') {
-        return (
-            <group ref={gRef}>
-                <mesh ref={solidRef}>
-                    <ringGeometry args={[0.04, 0.38, 32]} />
-                    <meshBasicMaterial color={M.colorSolid} opacity={0.9} {...matProps} />
-                </mesh>
-            </group>
-        )
-    }
-    return (
-        <group ref={gRef}>
-            <mesh ref={innerRef}>
-                <ringGeometry args={[0.02, 0.18, 24]} />
-                <meshBasicMaterial color={M.colorCore} opacity={0.9} {...matProps} />
-            </mesh>
-            <mesh ref={outerRef}>
-                <ringGeometry args={[0.1, 0.42, 32]} />
-                <meshBasicMaterial color={M.colorEdge} opacity={0.75} {...matProps} />
-            </mesh>
-        </group>
-    )
-}
-
 const Projectile = ({
     entry,
     onExpire,
@@ -392,6 +419,10 @@ const Projectile = ({
     const onCollisionEnter = useCallback(
         (payload: CollisionEnterPayload) => {
             if (impactCount.current >= MAX_IMPACTS_PER_BULLET) return
+            if (isEnemyCollision(payload)) {
+                onExpire(id)
+                return
+            }
             const m = payload.manifold
             const tr = rb.current?.translation()
             if (!tr) return
@@ -402,7 +433,7 @@ const Projectile = ({
             impactCount.current += 1
             onRecordImpact([tr.x, tr.y, tr.z], [n.x, n.y, n.z])
         },
-        [onRecordImpact]
+        [id, onExpire, onRecordImpact]
     )
 
     useFrame(() => {
@@ -429,7 +460,7 @@ const Projectile = ({
             if (!body) return
             handle = (body as { handle?: number }).handle
             if (handle === undefined) return
-            registerSphereProjectileHandle(handle)
+            registerSphereProjectileHandle(handle, id)
         }, 0)
         return () => {
             cancelled = true
@@ -456,7 +487,7 @@ const Projectile = ({
                 <BallCollider
                     args={[radius]}
                     collisionGroups={projectileCollision()}
-                    solverGroups={projectileCollision()}
+                    solverGroups={projectileSolverCollision()}
                     activeEvents={ActiveEvents.COLLISION_EVENTS}
                 />
                 {showColliderDebug && (
@@ -466,15 +497,17 @@ const Projectile = ({
                     </mesh>
                 )}
             </RigidBody>
-            <BulletTrail
-                rigidBodyRef={rb}
-                spawnPosition={position}
-                tailFade={trailTailFade}
-                trailWidth={trailWidth}
-                trailTaper={trailTaper}
-                lifeEndFade={lifeEndFade}
-                spawnedAt={spawnedAt}
-            />
+            {TRAILS_ENABLED && (
+                <BulletTrail
+                    rigidBodyRef={rb}
+                    spawnPosition={position}
+                    tailFade={trailTailFade}
+                    trailWidth={trailWidth}
+                    trailTaper={trailTaper}
+                    lifeEndFade={lifeEndFade}
+                    spawnedAt={spawnedAt}
+                />
+            )}
         </group>
     )
 }
@@ -485,7 +518,8 @@ function genId(): string {
 
 export const SphereTool = () => {
     const sphereRadius = PROJECTILE_SPHERE_RADIUS
-    const MAX_AMMO = 50
+    const MAX_AMMO = 30
+    const FIRE_INTERVAL_MS = 156
 
     const { showColliders, trailTailFade, trailWidth, trailTaper, lifeEndFade } = useControls(
         'SphereTool',
@@ -498,11 +532,35 @@ export const SphereTool = () => {
         },
         { collapsed: true, order: 997 }
     )
+    const {
+        x: emitterX,
+        y: emitterY,
+        z: emitterZ,
+        rotX,
+        rotY,
+        rotZ,
+    } = useControls(
+        'Projectile Emitter',
+        {
+            x: { value: EMITTER_OFFSET_FROM_CAMERA.x, min: -1, max: 1, step: 0.01 },
+            y: { value: EMITTER_OFFSET_FROM_CAMERA.y, min: -1, max: 1, step: 0.01 },
+            z: { value: EMITTER_OFFSET_FROM_CAMERA.z, min: -3, max: -0.1, step: 0.01 },
+            rotX: { value: EMITTER_ROTATION_DEG.x, min: -30, max: 30, step: 0.1, label: 'rot X deg' },
+            rotY: { value: EMITTER_ROTATION_DEG.y, min: -30, max: 30, step: 0.1, label: 'rot Y deg' },
+            rotZ: { value: EMITTER_ROTATION_DEG.z, min: -180, max: 180, step: 0.1, label: 'rot Z deg' },
+        },
+        { collapsed: true, order: 996 },
+    )
 
     const camera = useThree((s) => s.camera)
+    const rapierWorld = useRapier().world
+    const hitscanBlockGroups = useMemo(
+        () => interactionGroups([CollisionGroup.projectile], [CollisionGroup.world]),
+        [],
+    )
     const [spheres, setSpheres] = useState<SphereEntry[]>([])
-    const [muzzle, setMuzzle] = useState<MuzzleFlashItem[]>([])
     const [impacts, setImpacts] = useState<SurfaceImpactItem[]>([])
+    const [hitscanTrails, setHitscanTrails] = useState<HitscanTrailItem[]>([])
 
     const removeProjectile = useCallback((projectileId: string) => {
         setSpheres((prev) => prev.filter((s) => s.id !== projectileId))
@@ -510,7 +568,7 @@ export const SphereTool = () => {
 
     const recordImpact = useCallback((p: [number, number, number], n: [number, number, number]) => {
         setImpacts((prev) => [
-            ...prev,
+            ...prev.slice(-5),
             { id: `imp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, pos: p, nrm: n },
         ])
     }, [])
@@ -519,49 +577,115 @@ export const SphereTool = () => {
         setImpacts((prev) => prev.filter((x) => x.id !== impactId))
     }, [])
 
+    const hitscanEnemy = useCallback((direction: THREE.Vector3): [number, number, number] | null => {
+        _hitscanOrigin.copy(camera.position)
+        _hitscanDirection.copy(direction).normalize()
+        const hit = raycastEnemyHitTargets(
+            [_hitscanOrigin.x, _hitscanOrigin.y, _hitscanOrigin.z],
+            [_hitscanDirection.x, _hitscanDirection.y, _hitscanDirection.z],
+            ENEMY_HITSCAN_RANGE,
+        )
+        if (!hit) return null
+        const blockDistance = Math.max(0, hit.distance - 0.04)
+        if (blockDistance > 0) {
+            const blocker = rapierWorld.castRay(
+                new Rapier.Ray(_hitscanOrigin, _hitscanDirection),
+                blockDistance,
+                true,
+                undefined,
+                hitscanBlockGroups,
+            )
+            if (blocker) return null
+        }
+        hit.enemy.damage(hit.position, hit.normal)
+        return hit.position
+    }, [camera, hitscanBlockGroups, rapierWorld])
+
+    useEffect(() => {
+        const onEnemyHit = (event: Event) => {
+            const detail = (event as CustomEvent<ProjectileHitEnemyDetail>).detail
+            const projectileId = getSphereProjectileIdByHandle(detail.projectileHandle)
+            if (projectileId) removeProjectile(projectileId)
+            recordImpact(detail.position, detail.normal)
+        }
+        window.addEventListener(PROJECTILE_HIT_ENEMY_EVENT, onEnemyHit)
+        return () => window.removeEventListener(PROJECTILE_HIT_ENEMY_EVENT, onEnemyHit)
+    }, [recordImpact, removeProjectile])
+
     const [ammoCount, setAmmoCount] = useState(MAX_AMMO)
     const [isReloading, setIsReloading] = useState(false)
     const shootingInterval = useRef<number>()
     const isPointerDown = useRef(false)
+    const ammoCountRef = useRef(MAX_AMMO)
+    const isReloadingRef = useRef(false)
     const gamepadState = useGamepad()
 
-    const reload = () => {
-        if (isReloading) return
+    const reload = (force = false) => {
+        if (isReloadingRef.current) return
+        if (!force && ammoCountRef.current >= MAX_AMMO) return
 
+        isReloadingRef.current = true
         setIsReloading(true)
-        setTimeout(() => {
-            setAmmoCount(MAX_AMMO)
-            setIsReloading(false)
-        }, 1000)
+        window.dispatchEvent(new CustomEvent(PLAYER_WEAPON_RELOAD_EVENT))
     }
 
     const shootSphere = () => {
         const pointerLocked = document.pointerLockElement !== null || gamepadState.connected
-        if (!pointerLocked || isReloading || ammoCount <= 0) return
+        if (!pointerLocked || isReloadingRef.current) return
+        const ammoBeforeShot = ammoCountRef.current
+        if (ammoBeforeShot <= 0) {
+            reload(true)
+            return
+        }
+        const shouldAutoReload = ammoBeforeShot <= 1
 
         setAmmoCount((prev) => {
             const newCount = prev - 1
-            if (newCount <= 0) {
-                reload()
-            }
-            return newCount
+            ammoCountRef.current = newCount
+            return Math.max(0, newCount)
         })
-
-        const direction = camera.getWorldDirection(new THREE.Vector3())
+        window.dispatchEvent(new CustomEvent(PLAYER_WEAPON_SHOOT_EVENT))
+        playShotSound()
 
         const offset = new THREE.Vector3(
-            EMITTER_OFFSET_FROM_CAMERA.x,
-            EMITTER_OFFSET_FROM_CAMERA.y,
-            EMITTER_OFFSET_FROM_CAMERA.z
+            emitterX,
+            emitterY,
+            emitterZ
         )
         offset.applyQuaternion(camera.quaternion)
 
         const position = camera.position.clone().add(offset)
 
-        direction.normalize()
+        _shotRotation.set(
+            THREE.MathUtils.degToRad(rotX),
+            THREE.MathUtils.degToRad(rotY),
+            THREE.MathUtils.degToRad(rotZ),
+            'XYZ',
+        )
+        const direction = _localShotDirection
+            .set(0, 0, -1)
+            .applyEuler(_shotRotation)
+            .applyQuaternion(camera.quaternion)
+            .normalize()
+        const enemyHitPoint = hitscanEnemy(direction)
+        if (enemyHitPoint) {
+            if (TRAILS_ENABLED) {
+                setHitscanTrails((prev) => [
+                    ...prev.slice(-3),
+                    {
+                        id: `hittrail_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                        from: position.toArray() as [number, number, number],
+                        to: enemyHitPoint,
+                        spawnedAt: performance.now(),
+                    },
+                ])
+            }
+            if (shouldAutoReload) reload(true)
+            return
+        }
 
         setSpheres((prev) => [
-            ...prev,
+            ...prev.slice(-3),
             {
                 id: genId(),
                 position: position.toArray() as [number, number, number],
@@ -570,16 +694,13 @@ export const SphereTool = () => {
                 spawnedAt: performance.now(),
             },
         ])
-        setMuzzle((prev) => [
-            ...prev,
-            { id: `muz_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, t0: performance.now() },
-        ])
+        if (shouldAutoReload) reload(true)
     }
 
     const startShooting = () => {
         isPointerDown.current = true
         shootSphere()
-        shootingInterval.current = window.setInterval(shootSphere, 80)
+        shootingInterval.current = window.setInterval(shootSphere, FIRE_INTERVAL_MS)
     }
 
     const stopShooting = () => {
@@ -590,8 +711,35 @@ export const SphereTool = () => {
     }
 
     useEffect(() => {
+        ammoCountRef.current = ammoCount
+    }, [ammoCount])
+
+    useEffect(() => {
+        isReloadingRef.current = isReloading
+    }, [isReloading])
+
+    useEffect(() => {
+        const onReloadComplete = () => {
+            ammoCountRef.current = MAX_AMMO
+            setAmmoCount(MAX_AMMO)
+            isReloadingRef.current = false
+            setIsReloading(false)
+        }
+        window.addEventListener(PLAYER_WEAPON_RELOAD_COMPLETE_EVENT, onReloadComplete)
+        return () => window.removeEventListener(PLAYER_WEAPON_RELOAD_COMPLETE_EVENT, onReloadComplete)
+    }, [])
+
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.code !== 'KeyR') return
+            const pointerLocked = document.pointerLockElement !== null || gamepadState.connected
+            if (!pointerLocked) return
+            event.preventDefault()
+            reload()
+        }
         window.addEventListener('pointerdown', startShooting)
         window.addEventListener('pointerup', stopShooting)
+        window.addEventListener('keydown', onKeyDown)
 
         if (gamepadState.buttons.shoot) {
             if (!isPointerDown.current) {
@@ -604,10 +752,11 @@ export const SphereTool = () => {
         return () => {
             window.removeEventListener('pointerdown', startShooting)
             window.removeEventListener('pointerup', stopShooting)
+            window.removeEventListener('keydown', onKeyDown)
         }
         // startShooting/stopShooting intencionalmente omitidos: evita re-binds constantes
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [camera, gamepadState.buttons.shoot])
+    }, [camera, emitterX, emitterY, emitterZ, gamepadState.buttons.shoot, hitscanEnemy, rotX, rotY, rotZ])
 
     useEffect(() => {
         const ammoDisplay = document.getElementById('ammo-display')
@@ -618,13 +767,6 @@ export const SphereTool = () => {
 
     return (
         <group>
-            {muzzle.map((m) => (
-                <MuzzleFlashFx
-                    key={m.id}
-                    item={m}
-                    onDone={() => setMuzzle((prev) => prev.filter((x) => x.id !== m.id))}
-                />
-            ))}
             {spheres.map((entry) => (
                 <Projectile
                     key={entry.id}
@@ -636,6 +778,13 @@ export const SphereTool = () => {
                     trailTaper={trailTaper}
                     lifeEndFade={lifeEndFade}
                     onRecordImpact={recordImpact}
+                />
+            ))}
+            {TRAILS_ENABLED && hitscanTrails.map((trail) => (
+                <HitscanTrail
+                    key={trail.id}
+                    item={trail}
+                    onDone={() => setHitscanTrails((prev) => prev.filter((x) => x.id !== trail.id))}
                 />
             ))}
             {impacts.map((imp) => (

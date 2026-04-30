@@ -65,14 +65,19 @@ function useEditorShortcuts() {
             }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
                 e.preventDefault()
-                if (s.selectedId) s.duplicateInstance(s.selectedId)
+                s.duplicateSelected()
+                return
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+                e.preventDefault()
+                s.groupSelected()
                 return
             }
 
             if (e.key === 'Delete' || e.key === 'Backspace') {
-                if (s.selectedId) {
+                if (s.selectedIds.length > 0 || s.selectedId) {
                     e.preventDefault()
-                    s.removeInstance(s.selectedId)
+                    s.removeSelected()
                 }
                 return
             }

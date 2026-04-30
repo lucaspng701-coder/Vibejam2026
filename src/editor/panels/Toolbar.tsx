@@ -21,9 +21,25 @@ export function Toolbar() {
 
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const data = useEditorStore.getState().toLevelFile()
         const json = JSON.stringify(data, null, 2)
+
+        try {
+            const response = await fetch('/__editor/save-level', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: json,
+            })
+            if (response.ok) {
+                console.info(`Level salvo em public/levels/${data.name || 'level'}.json`)
+                return
+            }
+            console.warn('Falha ao salvar no arquivo local, baixando JSON.', await response.text())
+        } catch (err) {
+            console.warn('Falha ao salvar no arquivo local, baixando JSON.', err)
+        }
+
         const blob = new Blob([json], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')

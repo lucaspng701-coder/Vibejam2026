@@ -67,6 +67,18 @@ export const CATEGORY_DEFAULTS: Record<Category, CategoryDefaults> = {
         defaultMass: 0,
         uniformScaleOnly: true,
     },
+    'enemy-trigger': {
+        bodyType: 'fixed',
+        debugColor: '#ffd400',
+        defaultMass: 0,
+        uniformScaleOnly: false,
+    },
+    decal: {
+        bodyType: 'fixed',
+        debugColor: '#ffffff',
+        defaultMass: 0,
+        uniformScaleOnly: false,
+    },
 }
 
 export function bodyTypeFor(category: Category): BodyType {

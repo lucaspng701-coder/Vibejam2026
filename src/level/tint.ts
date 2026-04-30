@@ -34,3 +34,29 @@ export function applyTintToMaterial(material: THREE.Material, color: THREE.Color
         withColor.color.copy(color)
     }
 }
+
+export function applyOpacityToObject(root: THREE.Object3D, opacity: number | undefined): void {
+    if (opacity === undefined) return
+    const value = clampOpacity(opacity)
+    root.traverse((obj) => {
+        const mesh = obj as THREE.Mesh
+        if (!mesh.isMesh || !mesh.material) return
+        if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((m) => applyOpacityToMaterial(m, value))
+        } else {
+            applyOpacityToMaterial(mesh.material, value)
+        }
+    })
+}
+
+export function applyOpacityToMaterial(material: THREE.Material, opacity: number): void {
+    material.opacity = opacity
+    material.transparent = opacity < 0.999
+    material.depthWrite = opacity >= 0.999
+    material.needsUpdate = true
+}
+
+export function clampOpacity(opacity: number | undefined): number {
+    if (opacity === undefined || Number.isNaN(opacity)) return 1
+    return Math.max(0, Math.min(1, opacity))
+}

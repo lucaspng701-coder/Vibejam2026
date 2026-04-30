@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "name": "untitled",
+  "environment": {
+    "mode": "preset",
+    "preset": "sunset",
+    "file": "",
+    "background": true,
+    "backgroundColor": "#1a1d22",
+    "ibl": true,
+    "blur": 0.8,
+    "intensity": 1,
+    "resolution": 256
+  },
+  "lighting": {
+    "ambientIntensity": 1.3,
+    "directionalIntensity": 1,
+    "directionalHeight": 20,
+    "directionalDistance": 10,
+    "shadows": true
+  },
+  "edgeOutline": {
+    "enabled": true,
+    "color": "#111111",
+    "threshold": 20,
+    "lineWidth": 1
+  },
+  "instances": []
+}

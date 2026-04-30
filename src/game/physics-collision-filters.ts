@@ -28,5 +28,8 @@ export const playerCollision = () => interactionGroups([CollisionGroup.player], 
 export const projectileCollision = () =>
     interactionGroups([CollisionGroup.projectile], [CollisionGroup.world, CollisionGroup.enemy])
 
+export const projectileSolverCollision = () =>
+    interactionGroups([CollisionGroup.projectile], [CollisionGroup.world])
+
 /** Inimigo: cenário, player e balas; inclui inimigo–inimigo. */
 export const enemyCollision = () => interactionGroups([CollisionGroup.enemy], [...ALL])
